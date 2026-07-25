@@ -272,6 +272,13 @@ class ClassifierModel:
         import lightgbm as lgb
 
         booster = lgb.Booster(model_str=payload["booster"])
+        # A booster reloaded from its text form drops the training params dict. SHAP's TreeExplainer
+        # reads params["objective"] to pick its output handling, so restore the essentials or SHAP
+        # raises a KeyError on multiclass models.
+        if not getattr(booster, "params", None):
+            booster.params = {}
+        booster.params.setdefault("objective", "multiclass")
+        booster.params.setdefault("num_class", len(payload.get("class_order", ANOMALY_CLASSES)))
         calibrators = [
             IsotonicCalibrator.from_dict(item) for item in payload.get("calibrators", [])
         ]
