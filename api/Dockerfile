@@ -14,7 +14,11 @@ WORKDIR /app
 COPY api/requirements.txt /app/api/requirements.txt
 RUN pip install --no-cache-dir -r /app/api/requirements.txt
 
+# The read API shares the store and feedback logic with the scoring plane. These modules only
+# depend on `common` (no ML libraries), so the image stays small; the ML-heavy serving modules are
+# present but never imported here.
 COPY common/ /app/common/
+COPY serving/ /app/serving/
 COPY api/ /app/api/
 
 # Run unprivileged.

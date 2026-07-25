@@ -16,7 +16,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import system
+from api.routers import campaigns, detections, insights, system, ws
 from api.services.health import SERVICE_VERSION, get_liveness
 from common.config import settings
 from common.database import close_all, ensure_indexes
@@ -74,6 +74,10 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(system.router)
+    app.include_router(detections.router)
+    app.include_router(campaigns.router)
+    app.include_router(insights.router)
+    app.include_router(ws.router)
 
     @app.get("/api/v1/health", response_model=ServiceHealth, tags=["system"])
     async def health() -> ServiceHealth:
