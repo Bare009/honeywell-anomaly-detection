@@ -1,9 +1,9 @@
 # AI-Powered Behavioral Anomaly Detection
 
 A layered behavioral anomaly engine for detecting compromised credentials and intrusions in
-near real-time. Statistical and autoencoder baselines, a sequence model over access
-patterns, and a supervised anomaly-type classifier fuse into a **calibrated, explainable
-risk score** per event — mapped to MITRE ATT&CK, reconstructed into attack campaigns, and
+near real-time. An autoencoder baseline over entity-relative features, a GRU sequence model
+over command patterns, and a supervised anomaly-type classifier fuse into a **calibrated,
+explainable risk score** per event — mapped to MITRE ATT&CK, reconstructed into campaigns, and
 surfaced in a live analyst dashboard.
 
 The system is trained and evaluated entirely on synthetic behavioral telemetry. It is
@@ -13,7 +13,8 @@ CPU-only, deterministic under a single seed, and runs offline end to end.
 
 | Decision | Reason |
 |---|---|
-| Three fused detector tiers | Each tier targets a different failure mode: unsupervised baselines catch cold-start and zero-day deviation, the sequence model catches order-aware behavior, the classifier names the attack type. Fusion beats any single model. |
+| Three fused detector tiers | Each tier targets a different failure mode: the unsupervised autoencoder catches cold-start and zero-day deviation, the GRU catches order-aware behavior, the classifier names the attack type. Fusion beats any single model. |
+| One technique per tier, not several | The brief allows a choice for the baseline and sequence models. One-Class SVM was rejected on scalability (~O(n²)) and on having nothing per-feature to explain; a Transformer was rejected because 54 tokens over 20 steps gives self-attention nothing to exploit. Picking the best fit beats stacking alternatives that each need tuning and justification. |
 | PR-AUC and recall@budget, never raw accuracy | Attacks are 0.5–3% of events. A model that predicts "normal" always would score 97%+ accuracy and catch nothing. |
 | Explainable by construction | SHAP attributions, counterfactual "nearest-normal" reasons, sequence-step attribution and MITRE mapping are produced inside the scoring pipeline, not bolted on afterwards. |
 | One `featurize()` for train and serve | Train/serve skew is the most common silent failure in ML systems. There is exactly one feature function, and it is used by both planes. |

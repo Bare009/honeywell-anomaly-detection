@@ -55,21 +55,38 @@ This is fundamentally an ML problem: sequence modeling, behavioral profiling, ex
 imbalance, concept drift, cold start, and explainability. The system is built as three layered
 detectors fused into one score:
 
-1. **Baseline** (unsupervised statistical profile + Isolation Forest / One-Class SVM + tabular
-   autoencoder) — catches cold-start and zero-day deviations.
-2. **Sequence** (GRU/LSTM over command/resource sequences) — catches order-aware anomalies.
+1. **Baseline** (tabular **Autoencoder** over entity-relative features) — catches cold-start and
+   zero-day deviations.
+2. **Sequence** (**GRU** next-event model over command sequences) — catches order-aware anomalies.
 3. **Classifier** (calibrated LightGBM multi-class) — names the anomaly type.
+
+> **One technique per deliverable.** The brief offers a choice for deliverables 2 and 3
+> (statistical profile / Autoencoder / One-Class SVM, and LSTM / GRU / Transformer / Graph). We
+> build exactly one of each, chosen on merit rather than stacking alternatives:
+>
+> * **Autoencoder, not One-Class SVM or a bare statistical profile.** OCSVM trains in ~O(n²), does
+>   not scale to ~100k events, and yields a single opaque distance with nothing per-feature to
+>   explain. Univariate z-scores can say "this hour is unusual" but never "this *combination* never
+>   occurs" — and multivariate structure is exactly the zero-day case. Reconstruction error is
+>   multivariate *and* explainable per feature. Statistical profiling is not lost: it lives in the
+>   feature layer (`BehaviorProfile` means/stds, likelihood features), so the autoencoder consumes
+>   it rather than duplicating it.
+> * **GRU, not Transformer, LSTM or Graph.** Vocabulary is ~54 tokens and sequences cap at 20 steps;
+>   self-attention needs long range and large data, so a Transformer would overfit at higher cost.
+>   GRU has three gates against LSTM's four — fewer parameters, faster training, equal or better on
+>   short sequences with limited data. Graph models adjacency, not order, which is the point of a
+>   *sequence-aware* deliverable.
 
 Fused into a **calibrated 0–100 risk score with an uncertainty band**, mapped to **MITRE ATT&CK**,
 reconstructed into **attack campaigns**, explained with **SHAP + counterfactual "nearest-normal"**
 reasons, and improved by an **analyst feedback loop**.
 
-**Pitch:** *"A layered behavioral anomaly engine — statistical + autoencoder baselines, a sequence
-model over access patterns, and a supervised anomaly-type classifier — producing a calibrated,
-explainable risk score per event, mapped to MITRE ATT&CK, reconstructed into attack campaigns, and
-surfaced in a live analyst dashboard with feature attributions, counterfactual explanations,
-cold-start handling, concept-drift adaptation, and an analyst feedback loop that measurably improves
-the model."*
+**Pitch:** *"A layered behavioral anomaly engine — an autoencoder baseline over entity-relative
+features, a GRU sequence model over access patterns, and a supervised anomaly-type classifier —
+producing a calibrated, explainable risk score per event, mapped to MITRE ATT&CK, reconstructed into
+attack campaigns, and surfaced in a live analyst dashboard with feature attributions, counterfactual
+explanations, cold-start handling, concept-drift adaptation, and an analyst feedback loop that
+measurably improves the model."*
 
 ---
 
@@ -201,8 +218,8 @@ Everything is built from scratch. There is no external code to adapt.
 |---|---|---|
 | **Synthetic data generator** | Per-entity profiles, benign traffic, 7 attack injectors, correlated multi-stage campaigns, baked-in drift, held-out labels, documented taxonomy | 1 |
 | **Feature pipeline** | One shared `featurize()`, persisted encoders/scalers, entity baselines, behavioral cohorts | 2 |
-| **Baseline model** | Statistical deviation + Isolation Forest/OCSVM + tabular autoencoder | 3 |
-| **Sequence model** | GRU/LSTM next-event surprise + sequence-autoencoder, per-step attribution | 4 |
+| **Baseline model** | Tabular autoencoder over entity-relative features; per-feature reconstruction error | 3 |
+| **Sequence model** | GRU next-event surprise, per-step attribution | 4 |
 | **Classifier + detectors + risk fusion** | Calibrated LightGBM multi-class, deterministic detectors, fusion → calibrated risk + uncertainty + alert budget | 5 |
 | **Explainability** | SHAP, counterfactuals, sequence attribution, MITRE mapping, optional narrative | 6 |
 | **Serving** | Stateless FastAPI scorer, persistence, campaign reconstruction, feedback loop, optional streaming | 7 |
@@ -223,8 +240,8 @@ The hackathon mandates seven deliverables. Each maps to a phase.
 | # | Mandatory Deliverable | Feature | Phase |
 |---|---|---|---|
 | 1 | Synthetic data generator + taxonomy | `data_generator/` — profiles, 7 attacks at 0.5–3%, correlated campaigns, baked-in drift, held-out labels, `TAXONOMY.md` | 1 |
-| 2 | Baseline profiling model | `models/baseline.py` — statistical + Isolation Forest/OCSVM + tabular Autoencoder | 3 |
-| 3 | Sequence-aware detection | `models/sequence.py` — GRU/LSTM (next-event surprise + seq-autoencoder) | 4 |
+| 2 | Baseline profiling model | `models/baseline.py` — tabular **Autoencoder** (one technique) | 3 |
+| 3 | Sequence-aware detection | `models/sequence.py` — **GRU** next-event model (one technique) | 4 |
 | 4 | Anomaly classification | `models/classifier.py` — LightGBM multi-class, calibrated | 5 |
 | 5 | Explainability layer | `explainability/` — SHAP + counterfactuals + MITRE + narrative | 6 |
 | 6 | Analyst dashboard | `frontend/` — Overview, Ranked Alerts + drawer, Entity Explorer, Model Performance, Drift, Storyline | 8 |
@@ -318,8 +335,8 @@ Three planes: **offline (train)**, **online (serve)**, **presentation (dashboard
 |---|---|---|
 | Language | Python 3.11+ | Rich ML ecosystem; CPU-friendly. |
 | Data gen | NumPy, pandas, Faker | Standard synthetic-data tooling. |
-| Classical ML | scikit-learn (IsolationForest, OneClassSVM, calibration, metrics), **LightGBM** | Strong on tabular + imbalance; SHAP-friendly. |
-| Deep models | **PyTorch (CPU)** (Autoencoder, GRU/LSTM) | Lightweight, deterministic on CPU. |
+| Classical ML | scikit-learn (KMeans for cohorts, calibration, metrics), **LightGBM** | Strong on tabular + imbalance; SHAP-friendly. |
+| Deep models | **PyTorch (CPU)** — one Autoencoder, one GRU | Lightweight, deterministic on CPU. |
 | Explainability | **SHAP** (TreeExplainer for the classifier), counterfactual perturbation search, sequence step-error | Standard; TreeExplainer is exact + fast. |
 | Scoring API | FastAPI + Uvicorn | Async, typed, minimal. |
 | Read API | FastAPI | Powers the dashboard. |
@@ -389,12 +406,14 @@ adjustments → WS push → dashboard.
 
 ## 14. AI / Model Pipeline
 
-**Tier 1 — Baseline (unsupervised; cold-start + zero-day):** per-entity statistical profile deviation
-+ Isolation Forest/OCSVM + tabular Autoencoder reconstruction error → normalized `baseline_score`.
+**Tier 1 — Baseline (unsupervised; cold-start + zero-day):** a tabular **Autoencoder** over the
+entity-relative feature vector. Reconstruction error → normalized `baseline_score`; per-feature error
+feeds the explanation. Because the inputs are already relative to the (cohort-blended) entity
+profile, cold-start handling is inherited from the feature layer rather than special-cased.
 
-**Tier 2 — Sequence (self-supervised; order):** GRU/LSTM over command/resource sequences; score =
-next-event surprise (mean NLL) and/or sequence-autoencoder error → normalized `sequence_score`;
-per-step attribution for explainability.
+**Tier 2 — Sequence (self-supervised; order):** a **GRU** over command sequences trained to predict
+the next token; score = next-event surprise (mean NLL) → normalized `sequence_score`. Per-step NLL is
+the per-step attribution, so score and explanation come from one computation.
 
 **Tier 3 — Classifier (supervised; type):** LightGBM multi-class over engineered features + tier-1/2
 scores; class-weighted; **calibrated** (isotonic/Platt). Classes as in §7.1.
@@ -674,46 +693,62 @@ on known cases.
 ---
 
 ### Phase 3 — Baseline Profiling Model (Deliverable #2)
-**Objective:** Unsupervised anomaly scoring + hierarchical cold-start.
+**Objective:** Unsupervised anomaly scoring via **one** technique — a tabular Autoencoder — with
+hierarchical cold-start inherited from the feature layer.
 **Prerequisites:** Phase 2.
 
-**Files to Create:** `models/baseline.py` (statistical deviation + IsolationForest/OCSVM + PyTorch
-tabular Autoencoder; normalized `baseline_score`; `score_baseline(features, profile)`; hierarchical
-cold-start path), `training/train_baseline.py`.
+**Chosen technique:** **Autoencoder.** The brief allows a statistical profile, an Autoencoder or a
+One-Class SVM. OCSVM is rejected on scalability (~O(n²) training, unusable at ~100k events) and on
+explainability (one opaque distance, nothing per-feature). A bare statistical profile is rejected as
+redundant — it already exists inside the feature layer, and univariate z-scores cannot express "this
+*combination* of behaviours never occurs", which is the zero-day case. Reconstruction error is
+multivariate and still explainable per feature.
+
+**Files to Create:** `models/baseline.py` (PyTorch tabular Autoencoder; `score_baseline(features)` →
+normalized `baseline_score`; `reconstruction_errors(features)` → per-feature error for explanations;
+score normalization fitted on held-out train residuals), `training/train_baseline.py`.
 **Files to Modify:** `training/build_artifacts.py` (create it here to orchestrate artifact building).
 
-**Build Tasks:** implement statistical + IsoForest/OCSVM + AE → normalize/combine → cold-start branch →
-train script → tests.
+**Build Tasks:** small symmetric AE (input → 32 → 16 → 32 → input, ReLU, MSE) → early stopping on a
+validation slice → fit score normalization → per-feature error surfacing → train script → tests.
 
-**Acceptance Criteria:** baseline alone gives clear PR-AUC uplift over random on held-out; cold-start
-path produces calibrated scores for new entities via cohort/global priors; artifacts written with
-manifest.
+**Acceptance Criteria:** the autoencoder alone gives clear PR-AUC uplift over random on held-out;
+cold-start entities receive finite, comparable scores via cohort-blended input features; per-feature
+reconstruction error is available for the explanation layer; artifacts written with manifest.
 
 **Verification:** `python -m training.train_baseline`; `pytest tests/test_baseline.py`.
 
-**Risks:** AE over/underfit → small net, early stop. **Complexity: L.**
+**Risks:** AE over/underfit → small net, early stop, fixed seed. **Complexity: M.**
 
 ---
 
 ### Phase 4 — Sequence Model (Deliverable #3)
-**Objective:** Order-aware anomaly scoring + step attribution.
+**Objective:** Order-aware anomaly scoring + step attribution, via **one** technique — a GRU.
 **Prerequisites:** Phase 2 (sequence encoding).
 
-**Files to Create:** `models/sequence.py` (GRU/LSTM; next-event surprise + sequence-autoencoder;
-normalized `sequence_score`; `score_sequence(sequence)`; `attribute_sequence(sequence)` for per-step
-weights), `training/train_sequence.py`.
+**Chosen technique:** **GRU next-event model.** The brief allows LSTM, GRU, Transformer or
+Graph-based. The vocabulary is ~54 tokens and sequences cap at 20 steps, so a Transformer's
+long-range attention has nothing to exploit and would overfit at higher cost. GRU beats LSTM here on
+parameter count (three gates against four) with equal or better accuracy on short sequences and
+limited data. Graph-based models adjacency rather than order, which is the whole point of a
+*sequence-aware* deliverable — it is kept as an optional Phase 10 extra instead.
+
+**Files to Create:** `models/sequence.py` (embedding → GRU → next-token softmax; `score_sequence()` →
+normalized `sequence_score` from mean NLL; `attribute_sequence()` → per-step NLL for explanations),
+`training/train_sequence.py`.
 **Files to Modify:** `training/build_artifacts.py`.
 
-**Build Tasks:** dataset of sequences → model → train (next-event and/or seq-AE) → scoring +
-attribution → tests.
+**Build Tasks:** sequence dataset from `features.sequences` → GRU → train next-token prediction with
+padding masked out of the loss → normalize score → per-step attribution → tests.
 
-**Acceptance Criteria:** sequence model improves recall on lateral-movement / low-and-slow vs
+**Acceptance Criteria:** the sequence model improves recall on lateral-movement / low-and-slow vs
 baseline-only; handles variable length (`<pad>`/`<unk>`); attribution returns per-step scores;
-deterministic.
+deterministic. Per-step NLL and the event score come from the same forward pass.
 
 **Verification:** `python -m training.train_sequence`; `pytest tests/test_sequence.py`.
 
-**Risks:** sparse vocab → pad/truncate, `<unk>`. **Complexity: L.**
+**Risks:** sparse vocab → pad/truncate, `<unk>`; padding leaking into the loss → explicit mask.
+**Complexity: M.**
 
 ---
 
