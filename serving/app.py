@@ -29,8 +29,9 @@ from common.artifacts import (
 )
 from common.config import settings
 from common.database import check_mongo_health, check_redis_health, close_all
-from common.models import HealthStatus, ServiceHealth
+from common.models import AnalystVerdict, Detection, Event, HealthStatus, ServiceHealth
 from common.seed import set_global_seed
+from serving.pipeline import ScoringPipeline
 
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
@@ -46,6 +47,7 @@ STATE: Dict[str, Any] = {
     "artifacts_loaded": False,
     "schema_ok": False,
     "manifest": None,
+    "pipeline": None,
 }
 
 
@@ -109,6 +111,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             manifest.get("schema_version"),
             manifest.get("git_sha"),
         )
+        # Load the scoring pipeline once, unless a caller injected one (tests). A MongoDB-backed
+        # store is used in production; failure to load is logged, not fatal -- /health still answers.
+        if STATE.get("pipeline") is None and STATE["schema_ok"]:
+            try:
+                from serving.store import MongoStore
+
+                STATE["pipeline"] = ScoringPipeline.load(store=MongoStore())
+                logger.info("Scoring pipeline loaded")
+            except Exception as exc:  # noqa: BLE001 - serving must boot to report health
+                logger.error("Failed to load scoring pipeline: %s: %s", type(exc).__name__, exc)
 
     yield
 
@@ -116,8 +128,26 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Scoring service stopped")
 
 
-def create_app() -> FastAPI:
-    """Build and configure the scoring FastAPI application."""
+def _require_pipeline() -> ScoringPipeline:
+    """Return the loaded pipeline or refuse with 503 -- never score without a model."""
+    pipeline = STATE.get("pipeline")
+    if pipeline is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Scoring pipeline not loaded. Run training/build_artifacts.py.",
+        )
+    return pipeline
+
+
+def create_app(pipeline: ScoringPipeline | None = None) -> FastAPI:
+    """Build and configure the scoring FastAPI application.
+
+    A ``pipeline`` may be injected (tests use one backed by an in-memory store); otherwise the
+    lifespan loads a MongoDB-backed pipeline at startup.
+    """
+    if pipeline is not None:
+        STATE["pipeline"] = pipeline
+
     app = FastAPI(
         title="Behavioral Anomaly Detection - Scoring Service",
         description=(
@@ -204,6 +234,38 @@ def create_app() -> FastAPI:
                 ),
             )
         return {"ready": True, "schema_version": settings.artifact_schema_version}
+
+    @app.post(
+        "/score",
+        response_model=Detection,
+        tags=["scoring"],
+        dependencies=[Depends(verify_scoring_token)],
+    )
+    async def score(event: Event) -> Detection:
+        """Score one event. Malformed input is rejected by validation (422) before it reaches a model."""
+        pipeline = _require_pipeline()
+        return await pipeline.score_event(event)
+
+    @app.post(
+        "/score/batch",
+        response_model=list[Detection],
+        tags=["scoring"],
+        dependencies=[Depends(verify_scoring_token)],
+    )
+    async def score_batch(events: list[Event]) -> list[Detection]:
+        """Score a batch of events in order; equivalent to scoring each on its own."""
+        pipeline = _require_pipeline()
+        return await pipeline.score_batch(events)
+
+    @app.post("/feedback", tags=["feedback"], dependencies=[Depends(verify_scoring_token)])
+    async def feedback(detection_id: str, verdict: AnalystVerdict, note: str | None = None) -> dict:
+        """Record an analyst verdict and adjust the entity's alert threshold (D6)."""
+        pipeline = _require_pipeline()
+        try:
+            record = await pipeline.feedback.apply(detection_id, verdict, note=note)
+        except KeyError as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        return record.model_dump(mode="json")
 
     return app
 
