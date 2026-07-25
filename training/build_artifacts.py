@@ -14,9 +14,11 @@ Stages, in order:
    entity profiles, behavioral cohorts and priors. Everything downstream consumes these.
 2. **Baseline autoencoder** (``training.train_baseline``) -- Tier 1.
 3. **GRU sequence model** (``training.train_sequence``) -- Tier 2.
+4. **Classifier + risk fusion** (``training.train_classifier``) -- Tier 3 plus the calibrated,
+   budgeted risk score.
 
-Later phases append their stages here (classifier, fusion, calibration, SHAP background), so the
-demo `make seed` step stays a single command as the system grows.
+Later phases append their stages here (SHAP background), so the demo `make seed` step stays a single
+command as the system grows.
 """
 
 from __future__ import annotations
@@ -31,8 +33,9 @@ from typing import Any, Dict, List, Optional, Sequence
 from common.config import settings
 from common.seed import set_global_seed
 from models.baseline import BaselineTrainConfig
+from models.classifier import ClassifierTrainConfig
 from models.sequence import SequenceTrainConfig
-from training import build_baselines, train_baseline, train_sequence
+from training import build_baselines, train_baseline, train_classifier, train_sequence
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +46,7 @@ def build_all(
     skip_features: bool = False,
     baseline_config: Optional[BaselineTrainConfig] = None,
     sequence_config: Optional[SequenceTrainConfig] = None,
+    classifier_config: Optional[ClassifierTrainConfig] = None,
 ) -> Dict[str, Any]:
     """Run every artifact-building stage in order and return a combined summary."""
     set_global_seed()
@@ -52,14 +56,14 @@ def build_all(
     if skip_features:
         logger.info("Skipping the feature-pipeline stage (--skip-features)")
     else:
-        logger.info("[1/3] Building the feature pipeline and entity baselines")
+        logger.info("[1/4] Building the feature pipeline and entity baselines")
         started = time.perf_counter()
         results["features"] = build_baselines.build(
             split="train", dataset_dir=dataset_dir, artifacts_dir=target_dir
         )
         logger.info("      done in %.1fs", time.perf_counter() - started)
 
-    logger.info("[2/3] Training the baseline autoencoder")
+    logger.info("[2/4] Training the baseline autoencoder")
     started = time.perf_counter()
     results["baseline"] = train_baseline.train_baseline(
         dataset_dir=dataset_dir,
@@ -68,12 +72,21 @@ def build_all(
     )
     logger.info("      done in %.1fs", time.perf_counter() - started)
 
-    logger.info("[3/3] Training the GRU sequence model")
+    logger.info("[3/4] Training the GRU sequence model")
     started = time.perf_counter()
     results["sequence"] = train_sequence.train_sequence(
         dataset_dir=dataset_dir,
         artifacts_dir=target_dir,
         config=sequence_config,
+    )
+    logger.info("      done in %.1fs", time.perf_counter() - started)
+
+    logger.info("[4/4] Training the classifier and tuning risk fusion")
+    started = time.perf_counter()
+    results["classifier"] = train_classifier.train_classifier(
+        dataset_dir=dataset_dir,
+        artifacts_dir=target_dir,
+        config=classifier_config,
     )
     logger.info("      done in %.1fs", time.perf_counter() - started)
 
@@ -89,6 +102,8 @@ def format_report(results: Dict[str, Any]) -> str:
         blocks.append(train_baseline.format_report(results["baseline"]))
     if "sequence" in results:
         blocks.append(train_sequence.format_report(results["sequence"]))
+    if "classifier" in results:
+        blocks.append(train_classifier.format_report(results["classifier"]))
     return "\n".join(blocks)
 
 
