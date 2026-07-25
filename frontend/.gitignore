@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+npm-debug.log*
+
+# TypeScript build outputs (emitted by `tsc -b` for the composite node project)
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts

@@ -4,7 +4,7 @@
 #   docker compose config         validate this file
 #   docker compose logs -f api    follow one service
 #
-# The `ui` service is added in Phase 8. Trained artifacts are built on the host
+# The `ui` service serves the analyst dashboard. Trained artifacts are built on the host
 # (python -m training.build_artifacts) and mounted read-only into the scorer -- training
 # never runs inside a container in the live path.
 #
@@ -96,6 +96,19 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+    networks:
+      - adp
+
+  ui:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: adp-ui
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
     networks:
       - adp
 
