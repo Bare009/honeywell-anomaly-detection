@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0.0",
   "seed": 42,
-  "created_at": "2026-07-25T14:06:04.885289+00:00",
-  "git_sha": "d2aa832",
+  "created_at": "2026-07-25T15:34:30.574869+00:00",
+  "git_sha": "e0d5056",
   "dataset": null,
   "artifacts": {
     "encoders": "encoders.json",
@@ -10,9 +10,9 @@
     "entity_profiles": "entity_profiles.json",
     "cohorts": "cohorts.json",
     "sequence_vocab": "sequence_vocab.json",
-    "baseline_model": null,
-    "autoencoder": null,
-    "sequence_model": null,
+    "baseline_model": "baseline_model.json",
+    "autoencoder": "baseline_model.json",
+    "sequence_model": "sequence_model.json",
     "classifier": null,
     "calibrator": null,
     "fusion": null,
