@@ -1,0 +1,108 @@
+# Local-first demo stack.
+#
+#   docker compose up -d          start mongodb, redis, the scorer and the read API
+#   docker compose config         validate this file
+#   docker compose logs -f api    follow one service
+#
+# The `ui` service is added in Phase 8. Trained artifacts are built on the host
+# (python -m training.build_artifacts) and mounted read-only into the scorer -- training
+# never runs inside a container in the live path.
+#
+# A .env file is optional: every setting has a working default in common/config.py.
+
+name: anomaly-detection
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: adp-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - adp
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: adp-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - adp
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  serving:
+    build:
+      context: .
+      dockerfile: serving/Dockerfile
+    container_name: adp-serving
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ADP_MONGO_URL: mongodb://mongodb:27017
+      ADP_REDIS_URL: redis://redis:6379/0
+      ADP_ARTIFACTS_DIR: /app/artifacts
+      ADP_SERVING_PORT: "8100"
+    ports:
+      - "8100:8100"
+    volumes:
+      # Read-only: the scorer loads trained state, it never writes it.
+      - ./artifacts:/app/artifacts:ro
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - adp
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: adp-api
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ADP_MONGO_URL: mongodb://mongodb:27017
+      ADP_REDIS_URL: redis://redis:6379/0
+      ADP_ARTIFACTS_DIR: /app/artifacts
+      ADP_API_PORT: "8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./artifacts:/app/artifacts:ro
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - adp
+
+volumes:
+  mongo_data:
+  redis_data:
+
+networks:
+  adp:
+    driver: bridge

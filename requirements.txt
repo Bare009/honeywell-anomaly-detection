@@ -1,0 +1,49 @@
+# Root development environment: everything needed to generate data, train, serve and test.
+# CPU-only by design. Versions are pinned so every machine reproduces the same numbers.
+#
+# Install (Windows PowerShell):
+#   python -m venv .venv ; .\.venv\Scripts\Activate.ps1 ; pip install -r requirements.txt
+#
+# PyTorch is the CPU build. If pip resolves a CUDA wheel, install it explicitly first:
+#   pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cpu
+
+# --- numerics / data ---
+numpy==1.26.4
+pandas==2.2.2
+pyarrow==16.1.0
+scipy==1.13.1
+Faker==25.9.1
+
+# --- classical ML ---
+scikit-learn==1.5.1
+lightgbm==4.4.0
+
+# --- deep models (CPU) ---
+torch==2.4.1
+
+# --- explainability ---
+shap==0.45.1
+
+# --- services ---
+fastapi==0.111.1
+uvicorn[standard]==0.30.3
+httpx==0.27.0
+python-multipart==0.0.9
+websockets==12.0
+
+# --- persistence ---
+motor==3.5.1
+pymongo==4.8.0  # pinned: motor 3.5.x is incompatible with pymongo>=4.9
+redis==5.0.7
+
+# --- config / validation ---
+pydantic==2.8.2
+pydantic-settings==2.3.4
+python-dotenv==1.0.1
+
+# --- plotting (report figures) ---
+matplotlib==3.9.2
+
+# --- testing ---
+pytest==8.2.2
+pytest-asyncio==0.23.8

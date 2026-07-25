@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0.0",
+  "seed": 42,
+  "created_at": null,
+  "git_sha": null,
+  "dataset": null,
+  "artifacts": {
+    "encoders": null,
+    "scaler": null,
+    "entity_profiles": null,
+    "cohorts": null,
+    "sequence_vocab": null,
+    "baseline_model": null,
+    "autoencoder": null,
+    "sequence_model": null,
+    "classifier": null,
+    "calibrator": null,
+    "fusion": null,
+    "thresholds": null,
+    "shap_background": null
+  },
+  "metrics": null,
+  "notes": "Placeholder manifest. Populated by training/build_artifacts.py."
+}

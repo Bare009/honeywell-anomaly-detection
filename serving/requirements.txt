@@ -1,0 +1,36 @@
+# Scoring service container dependencies.
+# This image needs the ML stack because it loads and runs the trained models -- but it
+# never trains. PyTorch is the CPU wheel; installing the CUDA build would add gigabytes
+# for no benefit. Versions match the root requirements.txt.
+
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# --- numerics ---
+numpy==1.26.4
+pandas==2.2.2
+pyarrow==16.1.0
+scipy==1.13.1
+
+# --- models ---
+scikit-learn==1.5.1
+lightgbm==4.4.0
+torch==2.4.1
+
+# --- explainability ---
+shap==0.45.1
+
+# --- service ---
+fastapi==0.111.1
+uvicorn[standard]==0.30.3
+httpx==0.27.0
+websockets==12.0
+
+# --- persistence ---
+motor==3.5.1
+pymongo==4.8.0  # pinned: motor 3.5.x is incompatible with pymongo>=4.9
+redis==5.0.7
+
+# --- config / validation ---
+pydantic==2.8.2
+pydantic-settings==2.3.4
+python-dotenv==1.0.1

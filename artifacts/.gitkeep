@@ -1,0 +1,7 @@
+# This directory holds all trained state produced by the offline training plane:
+# models, scalers, encoders, entity profiles, cohort priors, thresholds, fusion weights,
+# calibration, the SHAP background sample, the generated dataset and metrics.json.
+#
+# Binaries are git-ignored on purpose -- only this file and manifest.json are tracked.
+# Rebuild everything with:
+#   python -m data_generator.generate ; python -m training.build_artifacts
