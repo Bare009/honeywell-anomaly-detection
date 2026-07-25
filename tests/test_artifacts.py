@@ -139,8 +139,19 @@ class TestArtifactsReady:
         write_manifest({"artifacts": {key: None for key in ARTIFACT_KEYS}}, path)
         assert artifacts_ready(path) is False
 
-    def test_populated_manifest_is_ready(self, tmp_path: Path) -> None:
+    def test_named_but_missing_files_is_not_ready(self, tmp_path: Path) -> None:
+        """The manifest is tracked in git while the artifacts are not.
+
+        A fresh clone therefore has a manifest naming files it does not have. Trusting the
+        manifest alone would let serving report readiness and then fail on the first request.
+        """
         path = tmp_path / "manifest.json"
+        write_manifest({"artifacts": {"classifier": "classifier.txt"}}, path)
+        assert artifacts_ready(path) is False
+
+    def test_populated_manifest_with_real_files_is_ready(self, tmp_path: Path) -> None:
+        path = tmp_path / "manifest.json"
+        (tmp_path / "classifier.txt").write_text("model", encoding="utf-8")
         write_manifest({"artifacts": {"classifier": "classifier.txt"}}, path)
         assert artifacts_ready(path) is True
 
@@ -158,6 +169,21 @@ class TestRepositoryManifest:
     def test_gitkeep_present(self, project_root: Path) -> None:
         assert (project_root / "artifacts" / ".gitkeep").exists()
 
-    def test_tracked_manifest_is_not_ready(self, project_root: Path) -> None:
-        """The committed manifest must never claim to have trained models."""
-        assert artifacts_ready(project_root / "artifacts" / "manifest.json") is False
+    def test_tracked_manifest_reports_a_consistent_state(self, project_root: Path) -> None:
+        """The manifest must agree with itself about whether artifacts exist.
+
+        Readiness is not asserted either way: the manifest starts as a placeholder and becomes
+        populated once ``training/build_baselines.py`` has run locally. What must always hold is
+        the internal consistency -- a manifest claiming readiness has to name at least one
+        artifact, and one that names none must not claim readiness.
+        """
+        path = project_root / "artifacts" / "manifest.json"
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        slots = manifest.get("artifacts") or {}
+        filled = [key for key, value in slots.items() if value]
+
+        if artifacts_ready(path):
+            assert filled, "manifest claims readiness but names no artifacts"
+            assert manifest.get("created_at")
+        else:
+            assert not filled or manifest.get("created_at") is None

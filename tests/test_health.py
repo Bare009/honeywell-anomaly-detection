@@ -101,13 +101,20 @@ class TestServingHealth:
         payload = serving_client.get("/health").json()
         assert payload["service"] == "serving"
 
-    def test_artifacts_not_ready_before_training(
-        self, serving_client: TestClient
-    ) -> None:
-        """With no trained models the service must say so rather than imply readiness."""
+    def test_artifact_state_is_reported_honestly(self, serving_client: TestClient) -> None:
+        """Health must state the real artifact situation, whichever it is.
+
+        Not hardcoded to "untrained": whether artifacts exist depends on whether the training
+        scripts have been run locally. What must hold is that the summary flag and the
+        per-dependency detail agree, so an operator is never told two different things.
+        """
         payload = serving_client.get("/health").json()
-        assert payload["artifacts_ready"] is False
-        assert payload["dependencies"]["artifacts"]["status"] == "degraded"
+        artifacts = payload["dependencies"]["artifacts"]
+
+        if payload["artifacts_ready"]:
+            assert artifacts["status"] == "ok"
+        else:
+            assert artifacts["status"] in {"degraded", "error"}
 
     def test_manifest_endpoint_returns_contract(self, serving_client: TestClient) -> None:
         payload = serving_client.get("/manifest").json()
@@ -133,14 +140,34 @@ class TestServingAuth:
         )
         assert response.status_code == 403
 
-    def test_valid_token_reaches_readiness_gate(self, serving_client: TestClient) -> None:
-        """Authenticated but untrained: 503, not 401/403 -- auth passed, artifacts did not."""
+    def test_valid_token_passes_authentication(self, serving_client: TestClient) -> None:
+        """A correct token must get past auth: anything but 401/403.
+
+        What comes back then depends on artifact state -- 200 when a trained pipeline is present,
+        503 when it is not. Both mean authentication succeeded, which is what this asserts. The
+        two endpoints are cross-checked below so the outcome cannot be arbitrary.
+        """
         response = serving_client.get(
             "/ready",
             headers={"Authorization": f"Bearer {settings.scoring_auth_token}"},
         )
-        assert response.status_code == 503
-        assert "artifacts" in response.json()["detail"].lower()
+        assert response.status_code not in (401, 403)
+        assert response.status_code in (200, 503)
+
+    def test_readiness_gate_agrees_with_health(self, serving_client: TestClient) -> None:
+        """``/ready`` must not claim the scorer is usable while ``/health`` says it is not."""
+        health = serving_client.get("/health").json()
+        ready = serving_client.get(
+            "/ready",
+            headers={"Authorization": f"Bearer {settings.scoring_auth_token}"},
+        )
+
+        if health["artifacts_ready"]:
+            assert ready.status_code == 200
+            assert ready.json()["ready"] is True
+        else:
+            assert ready.status_code == 503
+            assert "artifact" in ready.json()["detail"].lower()
 
 
 class TestErrorHandling:

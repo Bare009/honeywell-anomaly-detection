@@ -151,17 +151,31 @@ def check_schema_version(path: Optional[Path] = None, strict: bool = False) -> b
 
 
 def artifacts_ready(path: Optional[Path] = None) -> bool:
-    """True when training has populated the manifest (a model is loadable).
+    """True when trained state is actually loadable.
+
+    Checks both that the manifest names artifacts **and that at least one of those files exists
+    on disk**. The file check is not redundant: the manifest is tracked in git while the artifact
+    binaries are not, so a fresh clone carries a manifest describing files it does not have.
+    Trusting the manifest alone would let the serving readiness gate report success and then fail
+    on the first scoring request.
 
     A placeholder manifest with every slot ``None`` counts as not ready.
     """
-    manifest = read_manifest(path)
+    manifest_path = path or settings.manifest_path
+    manifest = read_manifest(manifest_path)
     if manifest.get("created_at") is None:
         return False
+
     slots = manifest.get("artifacts") or {}
     if not isinstance(slots, dict):
         return False
-    return any(value is not None for value in slots.values())
+
+    named = [value for value in slots.values() if value]
+    if not named:
+        return False
+
+    directory = Path(manifest_path).parent
+    return any((directory / str(name)).exists() for name in named)
 
 
 def artifact_path(name: str) -> Path:
