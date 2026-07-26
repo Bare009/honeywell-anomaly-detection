@@ -104,7 +104,7 @@ CPU-only — **no GPU required**. Everything runs offline; no API keys are neede
 ### 2.2 Clone and enter the project
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Bare009/honeywell-anomaly-detection.git
 cd honeywell-anomaly-detection
 ```
 
