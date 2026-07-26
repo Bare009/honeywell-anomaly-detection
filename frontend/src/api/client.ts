@@ -43,8 +43,10 @@ export async function getDetection(detectionId: string): Promise<Detection> {
   return data;
 }
 
-export async function getEntity(entityId: string, limit = 100): Promise<EntityHistory> {
-  const { data } = await http.get<EntityHistory>(`/entities/${entityId}`, { params: { limit } });
+export async function getEntity(entityId: string, skip = 0, limit = 50): Promise<EntityHistory> {
+  const { data } = await http.get<EntityHistory>(`/entities/${entityId}`, {
+    params: { skip, limit },
+  });
   return data;
 }
 

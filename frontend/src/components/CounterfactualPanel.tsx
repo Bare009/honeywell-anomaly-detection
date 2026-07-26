@@ -9,8 +9,8 @@ export default function CounterfactualPanel({ cf }: { cf: Counterfactual | null 
   }
   return (
     <div className="space-y-3">
-      <div className="flex items-start gap-2 text-sm text-slate-300">
-        <Wand2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-sky-400" />
+      <div className="flex items-start gap-2 text-sm text-slate-700">
+        <Wand2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
         <span>{cf.summary ?? "No counterfactual summary."}</span>
       </div>
       {cf.changes.length > 0 && (
@@ -18,12 +18,12 @@ export default function CounterfactualPanel({ cf }: { cf: Counterfactual | null 
           {cf.changes.map((change, index) => (
             <li
               key={index}
-              className="flex items-center gap-2 rounded-md bg-slate-800/50 px-3 py-1.5 text-sm"
+              className="flex items-center gap-2 rounded-md bg-slate-100 px-3 py-1.5 text-sm"
             >
-              <span className="font-mono text-slate-300">{change.feature}</span>
+              <span className="font-mono text-slate-700">{change.feature}</span>
               <span className="text-slate-500">{formatValue(change.actual)}</span>
-              <ArrowRight className="h-3.5 w-3.5 text-slate-500" />
-              <span className="text-green-400">{formatValue(change.suggested)}</span>
+              <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
+              <span className="text-green-600">{formatValue(change.suggested)}</span>
             </li>
           ))}
         </ul>

@@ -38,7 +38,7 @@ export default function RiskGauge({
   return (
     <div className="flex flex-col items-center">
       <svg width={size} height={size / 2 + 16} viewBox={`0 0 ${size} ${size / 2 + 16}`}>
-        <path d={arc(0, 100)} fill="none" stroke="#1e293b" strokeWidth={10} strokeLinecap="round" />
+        <path d={arc(0, 100)} fill="none" stroke="#e2e8f0" strokeWidth={10} strokeLinecap="round" />
         {uncertainty > 0 && (
           <path
             d={arc(bandLow, bandHigh)}
@@ -56,9 +56,9 @@ export default function RiskGauge({
         <div className="text-3xl font-semibold" style={{ color }}>
           {clamped.toFixed(0)}
         </div>
-        <div className="text-xs uppercase tracking-wide text-slate-400">
+        <div className="text-xs uppercase tracking-wide text-slate-500">
           {riskBand(clamped)} risk
-          {uncertainty > 0 && <span className="text-slate-500"> · ±{uncertainty.toFixed(0)}</span>}
+          {uncertainty > 0 && <span className="text-slate-400"> · ±{uncertainty.toFixed(0)}</span>}
         </div>
       </div>
     </div>

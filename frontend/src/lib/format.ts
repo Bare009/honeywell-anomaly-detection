@@ -22,10 +22,10 @@ export function riskColor(risk: number): string {
 }
 
 const BAND_CLASSES: Record<RiskBand, string> = {
-  critical: "bg-red-500/15 text-red-400 border-red-500/30",
-  high: "bg-orange-500/15 text-orange-400 border-orange-500/30",
-  medium: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
-  low: "bg-green-500/15 text-green-400 border-green-500/30",
+  critical: "bg-red-50 text-red-700 border-red-200",
+  high: "bg-orange-50 text-orange-700 border-orange-200",
+  medium: "bg-amber-50 text-amber-700 border-amber-200",
+  low: "bg-green-50 text-green-700 border-green-200",
 };
 
 export function riskBadgeClasses(risk: number): string {

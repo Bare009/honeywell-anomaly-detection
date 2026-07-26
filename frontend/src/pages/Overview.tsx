@@ -1,5 +1,6 @@
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getDashboardSummary, listDetections } from "../api/client";
+import type { Detection } from "../api/types";
 import { useApi } from "../lib/useApi";
 import { Loading, ErrorBox, Empty } from "../components/States";
 import { formatDateTime, prettyType, riskBadgeClasses } from "../lib/format";
@@ -15,12 +16,25 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
 
 export default function Overview() {
   const summary = useApi(getDashboardSummary, []);
-  const recent = useApi(() => listDetections({ sort: "risk", limit: 8, min_risk: 1 }), []);
+  // Fetch a wider risk-sorted window, then keep only the top detection per entity so the list
+  // shows many distinct entities rather than many events from the same noisy one.
+  const recent = useApi(() => listDetections({ sort: "risk", limit: 200, min_risk: 1 }), []);
+  const topPerEntity = (() => {
+    const seen = new Set<string>();
+    const out: Detection[] = [];
+    for (const d of recent.data ?? []) {
+      if (seen.has(d.entity_id)) continue;
+      seen.add(d.entity_id);
+      out.push(d);
+      if (out.length >= 10) break;
+    }
+    return out;
+  })();
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-slate-100">Overview</h1>
+        <h1 className="text-xl font-semibold text-slate-900">Overview</h1>
         <p className="text-sm text-slate-500">
           Live behavioral anomaly detection across users, service accounts and edge devices.
         </p>
@@ -55,13 +69,13 @@ export default function Overview() {
                     angle={-30}
                     textAnchor="end"
                     interval={0}
-                    tick={{ fill: "#94a3b8", fontSize: 11 }}
+                    tick={{ fill: "#64748b", fontSize: 11 }}
                   />
-                  <YAxis allowDecimals={false} tick={{ fill: "#94a3b8", fontSize: 11 }} />
+                  <YAxis allowDecimals={false} tick={{ fill: "#64748b", fontSize: 11 }} />
                   <Tooltip
-                    contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8 }}
+                    contentStyle={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8 }}
                   />
-                  <Bar dataKey="count" fill="#38bdf8" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -70,11 +84,11 @@ export default function Overview() {
       )}
 
       <div className="card">
-        <div className="card-title mb-2">Highest-risk recent detections</div>
+        <div className="card-title mb-2">Highest-risk entities</div>
         {recent.loading && <Loading />}
         {recent.error && <ErrorBox message={recent.error} />}
-        {recent.data && recent.data.length === 0 && <Empty message="Nothing above threshold." />}
-        {recent.data && recent.data.length > 0 && (
+        {recent.data && topPerEntity.length === 0 && <Empty message="Nothing above threshold." />}
+        {topPerEntity.length > 0 && (
           <table className="w-full">
             <thead>
               <tr>
@@ -85,8 +99,8 @@ export default function Overview() {
               </tr>
             </thead>
             <tbody>
-              {recent.data.map((d) => (
-                <tr key={d.detection_id} className="border-t border-slate-800">
+              {topPerEntity.map((d) => (
+                <tr key={d.detection_id} className="border-t border-slate-200">
                   <td className="td font-mono">{d.entity_id}</td>
                   <td className="td">{prettyType(d.anomaly_type)}</td>
                   <td className="td">

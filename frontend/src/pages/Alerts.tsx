@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Snowflake } from "lucide-react";
 import { listDetections } from "../api/client";
 import { ANOMALY_CLASSES } from "../api/types";
@@ -7,6 +7,9 @@ import { useApi } from "../lib/useApi";
 import { Loading, ErrorBox, Empty } from "../components/States";
 import { formatDateTime, prettyType, riskBadgeClasses } from "../lib/format";
 import ExplanationDrawer from "../components/ExplanationDrawer";
+import Pagination from "../components/Pagination";
+
+const PAGE_SIZE = 50;
 
 export default function Alerts() {
   const [anomalyType, setAnomalyType] = useState("");
@@ -14,18 +17,23 @@ export default function Alerts() {
   const [coldStart, setColdStart] = useState(false);
   const [minRisk, setMinRisk] = useState(0);
   const [sort, setSort] = useState<"risk" | "time">("risk");
+  const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Detection | null>(null);
+
+  // Any filter change resets to the first page.
+  useEffect(() => setPage(0), [anomalyType, entityType, coldStart, minRisk, sort]);
 
   const query = useMemo(
     () => ({
       sort,
-      limit: 100,
+      skip: page * PAGE_SIZE,
+      limit: PAGE_SIZE,
       anomaly_type: anomalyType || undefined,
       entity_type: entityType || undefined,
       cold_start: coldStart || undefined,
       min_risk: minRisk || undefined,
     }),
-    [sort, anomalyType, entityType, coldStart, minRisk],
+    [sort, page, anomalyType, entityType, coldStart, minRisk],
   );
 
   const { data, loading, error } = useApi(() => listDetections(query), [query]);
@@ -34,8 +42,8 @@ export default function Alerts() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-100">Ranked Alerts</h1>
-          <p className="text-sm text-slate-500">Sorted by risk. Click a row for the full explanation.</p>
+          <h1 className="text-xl font-semibold text-slate-900">Ranked Alerts</h1>
+          <p className="text-sm text-slate-500">Apply the required filters and click a row for the full explanation.</p>
         </div>
       </div>
 
@@ -45,7 +53,7 @@ export default function Alerts() {
           <select
             value={anomalyType}
             onChange={(e) => setAnomalyType(e.target.value)}
-            className="mt-1 block rounded border border-slate-700 bg-slate-800 px-2 py-1 text-sm text-slate-200"
+            className="mt-1 block rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800"
           >
             <option value="">All</option>
             {ANOMALY_CLASSES.filter((c) => c !== "normal").map((c) => (
@@ -60,7 +68,7 @@ export default function Alerts() {
           <select
             value={entityType}
             onChange={(e) => setEntityType(e.target.value)}
-            className="mt-1 block rounded border border-slate-700 bg-slate-800 px-2 py-1 text-sm text-slate-200"
+            className="mt-1 block rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800"
           >
             <option value="">All</option>
             <option value="user">User</option>
@@ -88,7 +96,7 @@ export default function Alerts() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as "risk" | "time")}
-            className="mt-1 block rounded border border-slate-700 bg-slate-800 px-2 py-1 text-sm text-slate-200"
+            className="mt-1 block rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800"
           >
             <option value="risk">Risk</option>
             <option value="time">Time</option>
@@ -116,7 +124,7 @@ export default function Alerts() {
                 <tr
                   key={d.detection_id}
                   onClick={() => setSelected(d)}
-                  className="cursor-pointer border-t border-slate-800 hover:bg-slate-800/40"
+                  className="cursor-pointer border-t border-slate-200 hover:bg-slate-50"
                 >
                   <td className="td">
                     <span className={`badge ${riskBadgeClasses(d.risk_score)}`}>
@@ -127,14 +135,14 @@ export default function Alerts() {
                   <td className="td">{prettyType(d.anomaly_type)}</td>
                   <td className="td">
                     <div className="flex flex-wrap gap-1">
-                      {d.cold_start && <Snowflake className="h-3.5 w-3.5 text-sky-400" />}
+                      {d.cold_start && <Snowflake className="h-3.5 w-3.5 text-blue-600" />}
                       {d.detector_hits.map((h) => (
-                        <span key={h} className="badge border-red-500/30 bg-red-500/10 text-red-300">
+                        <span key={h} className="badge border-red-200 bg-red-50 text-red-700">
                           {h}
                         </span>
                       ))}
                       {d.campaign_id && (
-                        <span className="badge border-slate-600 bg-slate-700/40 text-slate-300">
+                        <span className="badge border-slate-300 bg-slate-100 text-slate-600">
                           campaign
                         </span>
                       )}
@@ -146,6 +154,12 @@ export default function Alerts() {
             </tbody>
           </table>
         )}
+        <Pagination
+          page={page}
+          pageSize={PAGE_SIZE}
+          hasNext={Boolean(data && data.length === PAGE_SIZE)}
+          onChange={setPage}
+        />
       </div>
 
       <ExplanationDrawer detection={selected} onClose={() => setSelected(null)} />

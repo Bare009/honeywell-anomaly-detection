@@ -3,33 +3,36 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
   margin: 0;
-  background-color: #0b1120;
-  color: #e2e8f0;
+  background-color: #f8fafc;
+  color: #0f172a;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 @layer components {
   .card {
-    @apply rounded-lg border border-slate-800 bg-slate-900/60 p-4;
+    @apply rounded-xl border border-slate-200 bg-white p-4 shadow-sm;
   }
   .card-title {
-    @apply text-sm font-semibold uppercase tracking-wide text-slate-400;
+    @apply text-xs font-semibold uppercase tracking-wide text-slate-500;
   }
   .badge {
     @apply inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium;
   }
   .stat {
-    @apply text-2xl font-semibold text-slate-100;
+    @apply text-2xl font-semibold text-slate-900;
   }
   .th {
-    @apply px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-400;
+    @apply px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500;
   }
   .td {
-    @apply px-3 py-2 text-sm text-slate-200;
+    @apply px-3 py-2 text-sm text-slate-700;
+  }
+  .input {
+    @apply rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 focus:border-blue-500 focus:outline-none;
   }
 }

@@ -15,8 +15,8 @@ export default function SequenceHighlight({ steps }: { steps: SequenceStepAttrib
           <span
             key={index}
             title={`surprise ${(step.score * 100).toFixed(0)}%`}
-            className="rounded px-2 py-1 font-mono text-xs text-slate-100"
-            style={{ backgroundColor: `rgba(239, 68, 68, ${0.15 + intensity * 0.65})` }}
+            className="rounded border border-red-100 px-2 py-1 font-mono text-xs text-slate-800"
+            style={{ backgroundColor: `rgba(239, 68, 68, ${0.08 + intensity * 0.4})` }}
           >
             {step.token}
           </span>

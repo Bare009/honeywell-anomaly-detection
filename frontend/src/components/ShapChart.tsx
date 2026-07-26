@@ -27,15 +27,15 @@ export default function ShapChart({ features }: { features: FeatureAttribution[]
   return (
     <ResponsiveContainer width="100%" height={Math.max(160, data.length * 34)}>
       <BarChart data={data} layout="vertical" margin={{ left: 12, right: 12 }}>
-        <XAxis type="number" tick={{ fill: "#94a3b8", fontSize: 11 }} />
+        <XAxis type="number" tick={{ fill: "#64748b", fontSize: 11 }} />
         <YAxis
           type="category"
           dataKey="name"
           width={150}
-          tick={{ fill: "#cbd5e1", fontSize: 11 }}
+          tick={{ fill: "#334155", fontSize: 11 }}
         />
         <Tooltip
-          contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8 }}
+          contentStyle={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8 }}
           formatter={(value) => {
             const num = Number(value);
             return [`${num >= 0 ? "+" : ""}${num.toFixed(3)}`, "SHAP"];

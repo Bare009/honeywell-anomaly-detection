@@ -25,7 +25,7 @@ export default function FeedbackButtons({ detectionId }: { detectionId: string }
   if (applied) {
     const adj = applied.applied;
     return (
-      <div className="text-sm text-slate-300">
+      <div className="text-sm text-slate-700">
         Recorded <span className="font-medium">{applied.analyst_verdict.replace("_", " ")}</span>.
         {adj && (
           <span className="text-slate-500">
@@ -42,18 +42,18 @@ export default function FeedbackButtons({ detectionId }: { detectionId: string }
       <button
         disabled={busy}
         onClick={() => send("confirmed")}
-        className="badge border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 disabled:opacity-50"
+        className="badge border-red-200 bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50"
       >
         <Check className="h-3.5 w-3.5" /> Confirm attack
       </button>
       <button
         disabled={busy}
         onClick={() => send("false_positive")}
-        className="badge border-slate-600 bg-slate-700/40 text-slate-200 hover:bg-slate-700/70 disabled:opacity-50"
+        className="badge border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50"
       >
         <ThumbsDown className="h-3.5 w-3.5" /> False positive
       </button>
-      {error && <span className="text-xs text-red-400">{error}</span>}
+      {error && <span className="text-xs text-red-600">{error}</span>}
     </div>
   );
 }

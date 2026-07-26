@@ -36,7 +36,7 @@ function ConfusionMatrix({ matrix, classes }: { matrix: number[][]; classes: str
                 <td
                   key={j}
                   className="td text-center"
-                  style={{ backgroundColor: `rgba(56, 189, 248, ${cell / max})` }}
+                  style={{ backgroundColor: `rgba(59, 130, 246, ${(cell / max) * 0.85})` }}
                 >
                   {cell}
                 </td>
@@ -58,7 +58,7 @@ export default function ModelPerformance() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-slate-100">Model Performance</h1>
+        <h1 className="text-xl font-semibold text-slate-900">Model Performance</h1>
         <p className="text-sm text-slate-500">
           Imbalance-aware metrics: PR-AUC and recall within the alert budget lead, not raw accuracy.
         </p>
@@ -85,20 +85,39 @@ export default function ModelPerformance() {
           </div>
 
           <div className="card">
-            <div className="card-title mb-2">Alert-budget curve — precision@k</div>
+            <div className="card-title mb-2">Alert-budget curve — precision vs budget</div>
+            <p className="mb-2 text-xs text-slate-400">
+              Precision among the top X% of events by risk. The actionable region is a small budget;
+              precision falls toward the ~1% base rate as the budget widens.
+            </p>
             {budgetCurve.length === 0 ? (
-              <Empty message="No precision@k curve in the metrics payload." />
+              <Empty message="No budget curve in the metrics payload." />
             ) : (
               <ResponsiveContainer width="100%" height={240}>
                 <LineChart
-                  data={budgetCurve.map((p, i) => ({ k: i + 1, precision: p }))}
+                  data={budgetCurve
+                    // Each sampled point i spans ~i/(N-1) of the ranked list, i.e. that alert budget.
+                    .map((p, i) => ({
+                      budget: (i / Math.max(1, budgetCurve.length - 1)) * 100,
+                      precision: p,
+                    }))
+                    // Zoom into the analyst's decision region (top 20%).
+                    .filter((pt) => pt.budget <= 20)}
                 >
-                  <XAxis dataKey="k" tick={{ fill: "#94a3b8", fontSize: 11 }} />
-                  <YAxis domain={[0, 1]} tick={{ fill: "#94a3b8", fontSize: 11 }} />
-                  <Tooltip
-                    contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8 }}
+                  <XAxis
+                    dataKey="budget"
+                    type="number"
+                    domain={[0, 20]}
+                    tickFormatter={(v: number) => `${v.toFixed(0)}%`}
+                    tick={{ fill: "#64748b", fontSize: 11 }}
                   />
-                  <Line type="monotone" dataKey="precision" stroke="#38bdf8" dot={false} strokeWidth={2} />
+                  <YAxis domain={[0, 1]} tick={{ fill: "#64748b", fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8 }}
+                    formatter={(value) => [Number(value).toFixed(3), "precision"]}
+                    labelFormatter={(v) => `top ${Number(v).toFixed(1)}% budget`}
+                  />
+                  <Line type="monotone" dataKey="precision" stroke="#3b82f6" dot={false} strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             )}

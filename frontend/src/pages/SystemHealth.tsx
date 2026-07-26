@@ -15,7 +15,7 @@ export default function SystemHealth() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-slate-100">System Health</h1>
+        <h1 className="text-xl font-semibold text-slate-900">System Health</h1>
         <p className="text-sm text-slate-500">Read API, its dependencies and the loaded model build.</p>
       </div>
 
@@ -48,11 +48,11 @@ export default function SystemHealth() {
           </div>
 
           <div className="card">
-            <div className="card-title mb-2">Dependencies</div>
+            <div className="card-title mb-2">Containers</div>
             <ul className="space-y-2 text-sm">
               {Object.entries(data.dependencies).map(([name, dep]) => (
                 <li key={name} className="flex items-center justify-between">
-                  <span className="text-slate-300">{name}</span>
+                  <span className="text-slate-700">{name}</span>
                   <span className="flex items-center gap-2 text-slate-400">
                     <StatusIcon status={dep.status} />
                     {dep.detail ?? dep.status}

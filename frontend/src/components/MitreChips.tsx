@@ -13,7 +13,7 @@ export default function MitreChips({ techniques }: { techniques: MitreTechnique[
           href={t.url ?? "#"}
           target="_blank"
           rel="noreferrer"
-          className="badge border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20"
+          className="badge border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
           title={t.tactic ?? undefined}
         >
           {t.technique_id} · {t.name}

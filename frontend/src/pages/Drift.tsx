@@ -4,9 +4,9 @@ import { Loading, ErrorBox, Empty } from "../components/States";
 import { formatNumber } from "../lib/format";
 
 const STATUS_CLASSES: Record<string, string> = {
-  stable: "border-green-500/30 bg-green-500/10 text-green-300",
-  drifting: "border-red-500/30 bg-red-500/10 text-red-300",
-  adapted: "border-sky-500/30 bg-sky-500/10 text-sky-300",
+  stable: "border-green-200 bg-green-50 text-green-700",
+  drifting: "border-red-200 bg-red-50 text-red-700",
+  adapted: "border-blue-200 bg-blue-50 text-blue-700",
 };
 
 export default function Drift() {
@@ -15,7 +15,7 @@ export default function Drift() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-slate-100">Drift Monitor</h1>
+        <h1 className="text-xl font-semibold text-slate-900">Drift Monitor</h1>
         <p className="text-sm text-slate-500">
           Per-entity PSI. Gradual benign change is absorbed; abrupt shifts are flagged.
         </p>
@@ -39,7 +39,7 @@ export default function Drift() {
             </thead>
             <tbody>
               {data.map((d) => (
-                <tr key={d.entity_id} className="border-t border-slate-800">
+                <tr key={d.entity_id} className="border-t border-slate-200">
                   <td className="td font-mono">{d.entity_id}</td>
                   <td className="td">
                     <span

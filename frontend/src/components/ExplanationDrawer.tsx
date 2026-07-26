@@ -33,17 +33,17 @@ export default function ExplanationDrawer({
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-50 flex h-full w-full max-w-xl flex-col overflow-y-auto border-l border-slate-800 bg-slate-900 p-5 shadow-2xl">
+      <div className="absolute inset-0 bg-slate-900/30" onClick={onClose} />
+      <div className="relative z-50 flex h-full w-full max-w-xl flex-col overflow-y-auto border-l border-slate-200 bg-white p-5 shadow-2xl">
         <div className="mb-4 flex items-start justify-between">
           <div>
-            <div className="font-mono text-sm text-slate-400">{detection.entity_id}</div>
-            <div className="text-lg font-semibold text-slate-100">
+            <div className="font-mono text-sm text-slate-500">{detection.entity_id}</div>
+            <div className="text-lg font-semibold text-slate-900">
               {prettyType(detection.anomaly_type)}
             </div>
-            <div className="text-xs text-slate-500">{formatDateTime(detection.timestamp)}</div>
+            <div className="text-xs text-slate-400">{formatDateTime(detection.timestamp)}</div>
           </div>
-          <button onClick={onClose} className="rounded p-1 text-slate-400 hover:bg-slate-800">
+          <button onClick={onClose} className="rounded p-1 text-slate-400 hover:bg-slate-100">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -56,22 +56,22 @@ export default function ExplanationDrawer({
                 {prettyType(detection.anomaly_type)}
               </span>{" "}
               {confidence != null && (
-                <span className="text-slate-400">{(confidence * 100).toFixed(0)}% confidence</span>
+                <span className="text-slate-500">{(confidence * 100).toFixed(0)}% confidence</span>
               )}
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
               {detection.cold_start && (
-                <span className="badge border-sky-500/30 bg-sky-500/10 text-sky-300">
+                <span className="badge border-blue-200 bg-blue-50 text-blue-700">
                   <Snowflake className="h-3 w-3" /> cold start
                 </span>
               )}
               {detection.drift_flag && (
-                <span className="badge border-amber-500/30 bg-amber-500/10 text-amber-300">
+                <span className="badge border-amber-200 bg-amber-50 text-amber-700">
                   drift
                 </span>
               )}
               {detection.detector_hits.map((hit) => (
-                <span key={hit} className="badge border-red-500/30 bg-red-500/10 text-red-300">
+                <span key={hit} className="badge border-red-200 bg-red-50 text-red-700">
                   {hit}
                 </span>
               ))}
@@ -79,7 +79,7 @@ export default function ExplanationDrawer({
             {detection.campaign_id && (
               <Link
                 to={`/storyline?campaign=${detection.campaign_id}`}
-                className="inline-flex items-center gap-1 text-xs text-sky-400 hover:underline"
+                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
               >
                 <GitBranch className="h-3.5 w-3.5" /> part of campaign {detection.campaign_id}
               </Link>
@@ -90,8 +90,8 @@ export default function ExplanationDrawer({
         <div className="space-y-5">
           {ex.narrative && (
             <Section title="Narrative">
-              <p className="text-sm text-slate-300">{ex.narrative}</p>
-              <span className="text-xs text-slate-600">source: {ex.narrative_source}</span>
+              <p className="text-sm text-slate-700">{ex.narrative}</p>
+              <span className="text-xs text-slate-400">source: {ex.narrative_source}</span>
             </Section>
           )}
 
@@ -119,7 +119,7 @@ export default function ExplanationDrawer({
                 </thead>
                 <tbody>
                   {Object.entries(ex.baseline_comparison.fields).map(([name, cmp]) => (
-                    <tr key={name} className={cmp.deviates ? "text-red-300" : ""}>
+                    <tr key={name} className={cmp.deviates ? "text-red-600" : ""}>
                       <td className="td font-mono">{name}</td>
                       <td className="td">{formatValue(cmp.observed)}</td>
                       <td className="td text-slate-400">{formatValue(cmp.typical)}</td>
