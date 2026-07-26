@@ -66,13 +66,42 @@ class TestReadApiSystemRouter:
         assert response.status_code == 200
         assert response.json()["status"] in {"ok", "degraded"}
 
-    def test_system_health_lists_dependencies(self, api_client: TestClient) -> None:
+    def test_system_health_lists_every_stack_service(self, api_client: TestClient) -> None:
+        """System Health mirrors ``docker compose ps``, so every service must be reported."""
         dependencies = api_client.get("/api/v1/system/health").json()["dependencies"]
-        assert {"mongodb", "redis", "artifacts"} <= set(dependencies)
+        assert {
+            "mongodb",
+            "redis",
+            "scorer",
+            "dashboard",
+            "read-api",
+            "artifacts",
+        } <= set(dependencies)
 
-    def test_redis_reported_disabled_when_off(self, api_client: TestClient) -> None:
+    def test_dependency_reachability_is_reported_by_container(
+        self, api_client: TestClient
+    ) -> None:
+        """Each dependency reports container reachability, not app-level opt-in.
+
+        ``redis`` is deliberately probed regardless of ``redis_enabled``: the System Health page
+        answers "is the container up", which is a different question from "does the app stream
+        through it". So the status is ``ok`` or ``error``, never ``disabled``.
+        """
         dependencies = api_client.get("/api/v1/system/health").json()["dependencies"]
-        assert dependencies["redis"]["status"] == "disabled"
+        for name in ("mongodb", "redis", "scorer", "dashboard"):
+            assert dependencies[name]["status"] in {"ok", "error"}, name
+            assert dependencies[name]["detail"]
+
+    def test_only_core_dependencies_degrade_the_service(
+        self, api_client: TestClient
+    ) -> None:
+        """A down scorer or dashboard is visible but must not mark the read API itself degraded."""
+        payload = api_client.get("/api/v1/system/health").json()
+        dependencies = payload["dependencies"]
+        core_ok = all(
+            dependencies[name]["status"] != "error" for name in ("mongodb", "artifacts")
+        )
+        assert payload["status"] == ("ok" if core_ok else "degraded")
 
     def test_config_endpoint_exposes_operational_knobs(
         self, api_client: TestClient

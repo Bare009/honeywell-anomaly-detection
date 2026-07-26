@@ -42,7 +42,7 @@ training/        models + fusion + calibration   │          → risk fusion (c
        ▼                                         │          → persist
    artifacts/  ── loaded read-only ──────────────┤
        │                                         ▼
-evaluation/      metrics + REPORT.md         MongoDB → api/ (read-only) → frontend/ dashboard
+evaluation/      metrics + report            MongoDB → api/ (read-only) → frontend/ dashboard
 ```
 
 The **same `featurize()`** runs offline and online, so an online score equals the offline score
@@ -59,7 +59,7 @@ for the same event (no train/serve skew). The serving plane only *loads* trained
 | **D4** Anomaly-type classifier | `models/classifier.py` (LightGBM) | `tests/test_classifier.py` |
 | **D5** Explainability layer | `explainability/` (SHAP, counterfactual, MITRE, narrative) | `tests/test_explainability.py`, `tests/test_counterfactual.py` |
 | **D6** Analyst dashboard | `frontend/` (React + Vite + TS) | — |
-| **D7** Final report | `REPORT.md` (generated), `evaluation/` | `tests/test_evaluation.py` |
+| **D7** Final report | `FINAL_REPORT.md`, `evaluation/` | `tests/test_evaluation.py` |
 | Extreme class imbalance | PR-AUC + recall@1% budget everywhere; never raw accuracy | `tests/test_risk.py` |
 | Cold start | Cohort-prior blending in the feature layer | `evaluation/coldstart_experiment.py` |
 | Concept drift | PSI monitor with adaptive re-profiling | `models/drift.py`, `tests/test_drift.py` |
@@ -67,9 +67,9 @@ for the same event (no train/serve skew). The serving plane only *loads* trained
 | Scalable / streaming | FastAPI scorer + optional Redis Streams consumer | `tests/test_serving.py` |
 | Attack-story reconstruction | Per-entity campaign / kill-chain linking | `serving/campaign.py`, `tests/test_campaign.py` |
 
-Headline results on the held-out **test** split (full numbers and honest limitations in
-[`REPORT.md`](REPORT.md)): PR-AUC ≈ 0.94, recall @ 1% budget ≈ 0.90, macro-F1 ≈ 0.86,
-calibration ECE ≈ 0.00, brute-force detector precision ≈ 1.0.
+Headline results on the held-out **test** split (full numbers, assumptions and honest limitations
+in [`FINAL_REPORT.md`](FINAL_REPORT.md)): PR-AUC 0.938, recall @ 1% budget 0.896, macro-F1 0.861,
+calibration ECE 0.0009, brute-force detector precision 1.000.
 
 ---
 
@@ -168,7 +168,7 @@ python -m evaluation.evaluate               # test-set metrics → artifacts/met
 python -m evaluation.coldstart_experiment   # cohort-prior uplift
 python -m evaluation.campaign_experiment    # kill-chain reconstruction accuracy
 python -m evaluation.drift_experiment       # PSI adaptation curves
-python -m evaluation.report                 # assembles REPORT.md
+python -m evaluation.report                 # writes a local REPORT.md of the measured numbers
 ```
 
 ### 2.9 Open the dashboard
@@ -260,9 +260,10 @@ tests/           unit and integration tests
 - **Determinism:** one seed (42) drives `random`, NumPy, PyTorch and LightGBM
   ([`common/seed.py`](common/seed.py)). Trained state is version-stamped in
   `artifacts/manifest.json` with the git SHA that produced it.
-- **Honesty:** [`REPORT.md`](REPORT.md) states every headline metric against its target *and* the
-  limitations (why ROC-AUC is not the headline at ~1% prevalence, thin per-class incident counts,
-  synthetic-data caveats). Metrics are computed on the held-out **test** split.
+- **Honesty:** [`FINAL_REPORT.md`](FINAL_REPORT.md) states every headline metric against its target
+  *and* the known limitations (why ROC-AUC is not the headline at ~1% prevalence, thin per-class
+  incident counts, the zero cold-start uplift, `device_spoofing` precision, synthetic-data caveats).
+  Metrics are computed on the held-out **test** split and regenerate via section 2.8.
 - **Data:** synthetic only, no real PII. Assumptions, per-class signals, injection rates, campaign
   structure and drift design are documented in `data_generator/TAXONOMY.md`.
 - **Fastest path to a running demo:** sections 2.3 → 2.9. If Docker is unavailable, the training,
