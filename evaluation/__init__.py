@@ -1,9 +1,7 @@
-"""Evaluation harness and experiments (backs Deliverable #7).
+"""Offline evaluation and the honesty report (Deliverable #7).
 
-Imbalance-aware metrics only: PR-AUC, ROC-AUC, recall at the analyst alert budget,
-precision@k, macro-F1 and calibration error -- never raw accuracy. Includes the cold-start
-ablation, the drift adaptation experiment and campaign-reconstruction accuracy.
-
-Modules arrive in Phase 9: ``metrics``, ``coldstart_experiment``, ``drift_experiment``,
-``campaign_experiment``, ``report_figures``.
+Every number here is computed on the held-out **test** split -- the split neither the models nor
+the fusion weights ever saw. The modules are deliberately separate from training so the report
+cannot accidentally quote a training-time number, and each writes a machine-readable artifact that
+``report.py`` assembles into ``REPORT.md``.
 """
