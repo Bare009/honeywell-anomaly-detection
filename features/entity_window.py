@@ -273,6 +273,83 @@ class BehaviorProfile:
     # Blending (cold-start shrinkage)
     # ------------------------------------------------------------------ #
 
+    def merged_with_observed(self, live: "BehaviorProfile") -> "BehaviorProfile":
+        """Extend this persisted baseline with evidence observed since it was fitted.
+
+        The persisted profile is the long-run baseline from training; ``live`` is what this process
+        has seen since. They describe **disjoint** observation windows, so merging is exact rather
+        than approximate: counts add, and distributions blend weighted by how many events each
+        summarizes.
+
+        This exists to close a train/serve inconsistency. During the offline fit the profile store
+        is empty, so features are computed against a live profile that grows event by event -- an
+        entity's new laptop stops looking novel once it has been seen a few times. During scoring the
+        persisted profile has far more sessions, so previously it *replaced* the live one and that
+        learning was thrown away: a device seen 51 times still reported ``is_new_device_mac = 1``.
+        The model was therefore trained on "baselines that learn" and scored on "baselines that
+        cannot", which is exactly the skew the single-``featurize`` rule exists to prevent.
+        """
+        stored_events = max(0, int(self.event_count))
+        live_events = max(0, int(live.event_count))
+        total = stored_events + live_events
+        if live_events == 0 or total == 0:
+            return self
+
+        weight = stored_events / total  # weight on this (persisted) profile
+
+        merged = BehaviorProfile(
+            entity_id=self.entity_id,
+            entity_type=self.entity_type or live.entity_type,
+            cohort=self.cohort if self.cohort is not None else live.cohort,
+            session_count=self.session_count + live.session_count,
+            event_count=total,
+            first_seen=min(
+                [t for t in (self.first_seen, live.first_seen) if t is not None],
+                default=None,
+            ),
+            last_seen=max(
+                [t for t in (self.last_seen, live.last_seen) if t is not None],
+                default=None,
+            ),
+            hour_hist=_blend_list(self.hour_hist, live.hour_hist, weight),
+            dow_hist=_blend_list(self.dow_hist, live.dow_hist, weight),
+            country_dist=_blend_dist(self.country_dist, live.country_dist, weight),
+            ip_prefix_dist=_blend_dist(self.ip_prefix_dist, live.ip_prefix_dist, weight),
+            resource_dist=_blend_dist(self.resource_dist, live.resource_dist, weight),
+            auth_method_dist=_blend_dist(self.auth_method_dist, live.auth_method_dist, weight),
+            device_mac_dist=_blend_dist(self.device_mac_dist, live.device_mac_dist, weight),
+            device_os_dist=_blend_dist(self.device_os_dist, live.device_os_dist, weight),
+            protocol_dist=_blend_dist(self.protocol_dist, live.protocol_dist, weight),
+            token_dist=_blend_dist(self.token_dist, live.token_dist, weight),
+            ngram_dist=_blend_dist(self.ngram_dist, live.ngram_dist, weight),
+            home_lat=self.home_lat if self.home_lat is not None else live.home_lat,
+            home_lon=self.home_lon if self.home_lon is not None else live.home_lon,
+            geo_spread_km=max(self.geo_spread_km, live.geo_spread_km),
+            auth_failure_rate=_blend_scalar(
+                self.auth_failure_rate, live.auth_failure_rate, weight
+            ),
+            feature_names=self.feature_names or list(live.feature_names),
+            feature_means=list(self.feature_means) or list(live.feature_means),
+            feature_stds=list(self.feature_stds) or list(live.feature_stds),
+            cold_start=self.cold_start and live.cold_start,
+            confidence=max(self.confidence, live.confidence),
+        )
+
+        # Numeric accumulators are additive over disjoint windows, so this is exact.
+        for attribute in (
+            "bytes_out_log",
+            "bytes_in_log",
+            "duration_log",
+            "interval_log",
+            "sequence_len",
+        ):
+            combined = RunningStat()
+            combined.merge(getattr(self, attribute))
+            combined.merge(getattr(live, attribute))
+            setattr(merged, attribute, combined)
+
+        return merged
+
     def blend_with(self, prior: "BehaviorProfile", weight: float) -> "BehaviorProfile":
         """Shrink this profile toward a prior.
 
@@ -886,17 +963,21 @@ class ProfileStore:
         Parameters
         ----------
         live_profile:
-            A profile assembled from events seen so far in this process, used by the offline
-            replay and by long-running online sessions. Preferred over the persisted profile
-            when it has more evidence, so an entity that arrives mid-stream starts building its
-            own baseline immediately instead of staying on cohort priors forever.
+            A profile assembled from events seen so far in this process. It **extends** the
+            persisted baseline rather than competing with it -- see
+            :meth:`BehaviorProfile.merged_with_observed`. An entity that arrives mid-stream builds
+            its own baseline immediately instead of staying on cohort priors, and an established
+            entity that changes device or location learns that change instead of being flagged for
+            it indefinitely.
         """
         stored = self.profiles.get(entity_id)
 
         own = stored
         if live_profile is not None:
-            if stored is None or live_profile.session_count >= stored.session_count:
+            if stored is None:
                 own = live_profile
+            else:
+                own = stored.merged_with_observed(live_profile)
 
         cohort = self.cohort_for(entity_id, entity_type)
         if own is not None and own.cohort is not None:

@@ -68,8 +68,8 @@ for the same event (no train/serve skew). The serving plane only *loads* trained
 | Attack-story reconstruction | Per-entity campaign / kill-chain linking | `serving/campaign.py`, `tests/test_campaign.py` |
 
 Headline results on the held-out **test** split (full numbers, assumptions and honest limitations
-in [`DETAILED_REPORT.md`](DETAILED_REPORT.md)): PR-AUC 0.938, recall @ 1% budget 0.896, macro-F1 0.861,
-calibration ECE 0.0009, brute-force detector precision 1.000.
+in [`DETAILED_REPORT.md`](DETAILED_REPORT.md)): PR-AUC 0.975, recall @ 1% budget 0.965, macro-F1 0.943,
+calibration ECE 0.0004, brute-force detector precision 1.000.
 
 ---
 

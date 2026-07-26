@@ -165,6 +165,12 @@ def strongest_override(results: Sequence[DetectorResult]) -> Optional[DetectorRe
     return max(eligible, key=lambda result: result.confidence)
 
 
+#: How confident the classifier must be in its own attack class to keep it when a detector fires.
+#: A detector sees two events and a rule; the classifier sees 68 features including cross-entity
+#: context. When it is sure, it is the better *type* oracle.
+TYPE_OVERRIDE_CONFIDENCE = 0.50
+
+
 def resolve_anomaly_type(
     classifier_type: AnomalyType,
     classifier_probs: Mapping[str, float],
@@ -172,11 +178,21 @@ def resolve_anomaly_type(
 ) -> Tuple[AnomalyType, Dict[str, float], List[str]]:
     """Reconcile the classifier's type with the deterministic detectors.
 
-    A confident detector wins: an obvious brute force or impossible-travel event should carry that
-    label even if the classifier guessed a neighbouring class. When it overrides, the probability
-    mass is moved onto the detector's class so the reported probabilities stay consistent with the
-    reported type. Returns the resolved type, the (possibly adjusted) probabilities, and the names
-    of every detector that fired.
+    A firing detector always raises the risk score (see ``models.risk.DETECTOR_RISK_FLOOR``), so
+    detection never depends on this function. What is decided here is only the *label*.
+
+    A detector wins the label when the classifier is unsure, or says ``normal`` -- that is the
+    detector doing its real job, catching what the model missed. But a **confident** attack
+    prediction is kept, because the detectors are narrow by construction: impossible travel is a
+    two-point geometric test, and it fires legitimately during other attacks. A credential-stuffing
+    spray from abroad while the real user is working locally *does* imply impossible velocity, yet
+    "credential stuffing" is the more useful label -- it explains the fan-out across many accounts,
+    which the geometric rule cannot see. Overriding unconditionally cost that class four events and
+    dragged impossible-travel precision to 0.63.
+
+    When the detector does win, probability mass is moved onto its class so the reported
+    probabilities stay consistent with the reported type. Returns the resolved type, the (possibly
+    adjusted) probabilities, and the names of every detector that fired.
     """
     probs: Dict[str, float] = {name: float(value) for name, value in classifier_probs.items()}
     hits = [result.name for result in detector_results if result.fired]
@@ -186,6 +202,13 @@ def resolve_anomaly_type(
         return classifier_type, probs, hits
 
     forced = override.anomaly_type
+
+    # Keep a confident, disagreeing attack prediction from the classifier.
+    if classifier_type is not AnomalyType.NORMAL and classifier_type is not forced:
+        classifier_confidence = float(probs.get(classifier_type.value, 0.0))
+        if classifier_confidence >= TYPE_OVERRIDE_CONFIDENCE:
+            return classifier_type, probs, hits
+
     # Blend the detector's confidence into the probability of its class, keeping the rest ranked.
     forced_key = forced.value
     remaining = max(0.0, 1.0 - override.confidence)
@@ -213,6 +236,7 @@ __all__ = [
     "BruteForceDetector",
     "DetectorBank",
     "strongest_override",
+    "TYPE_OVERRIDE_CONFIDENCE",
     "resolve_anomaly_type",
     "attack_probability",
 ]

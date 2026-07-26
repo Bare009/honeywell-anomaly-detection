@@ -3,33 +3,33 @@
 All numbers below are computed on the held-out **test** split (never seen by the models or the fusion tuning). Regenerate with `python -m evaluation.evaluate` and the experiment modules.
 
 - Split: `test` · 38,875 events · 260 entities · anomaly rate 0.9672%
-- Artifact schema: `1.0.0` · git `20b421e` · seed 42
+- Artifact schema: `1.0.0` · git `1f3c8c8` · seed 42
 
 ## Headline metrics
 
 | Metric | Result | Target | Verdict |
 | --- | --- | --- | --- |
-| PR-AUC | 0.9380 | ≥ 0.90 | PASS |
-| Recall @ 1% budget | 0.8963 | ≥ 0.80 | PASS |
-| Macro-F1 (9 classes) | 0.8607 | ≥ 0.85 | PASS |
-| Calibration ECE | 0.0009 | ≤ 0.05 | PASS |
-| ROC-AUC | 0.9956 | (context only) | — |
+| PR-AUC | 0.9746 | ≥ 0.90 | PASS |
+| Recall @ 1% budget | 0.9654 | ≥ 0.80 | PASS |
+| Macro-F1 (9 classes) | 0.9425 | ≥ 0.85 | PASS |
+| Calibration ECE | 0.0004 | ≤ 0.05 | PASS |
+| ROC-AUC | 0.9932 | (context only) | — |
 
-> macro_f1 over classes present in test: 0.8607
+> macro_f1 over classes present in test: 0.9425
 
 ## Per-class classification (type)
 
 | Class | Precision | Recall | F1 | Support |
 | --- | --- | --- | --- | --- |
-| normal | 1.000 | 0.996 | 0.998 | 38499 |
+| normal | 0.999 | 1.000 | 1.000 | 38499 |
 | credential_misuse | 1.000 | 0.974 | 0.987 | 39 |
 | lateral_movement | 1.000 | 1.000 | 1.000 | 63 |
 | brute_force | 1.000 | 1.000 | 1.000 | 45 |
-| impossible_travel | 0.607 | 0.944 | 0.739 | 18 |
-| credential_stuffing | 1.000 | 0.889 | 0.941 | 36 |
-| device_spoofing | 0.196 | 0.889 | 0.322 | 36 |
+| impossible_travel | 0.810 | 0.944 | 0.872 | 18 |
+| credential_stuffing | 1.000 | 1.000 | 1.000 | 36 |
+| device_spoofing | 0.903 | 0.778 | 0.836 | 36 |
 | low_and_slow_exfil | 1.000 | 1.000 | 1.000 | 96 |
-| insider_drift | 0.833 | 0.698 | 0.759 | 43 |
+| insider_drift | 1.000 | 0.651 | 0.789 | 43 |
 
 ## Deterministic detectors
 
@@ -48,7 +48,7 @@ All numbers below are computed on the held-out **test** split (never seen by the
 ## Campaign reconstruction (D1)
 
 - Stages linked correctly: **1.0000** (target ≥ 0.90, PASS)
-- Reconstructed campaigns: 55 · ground-truth campaigns in split: 4
+- Reconstructed campaigns: 47 · ground-truth campaigns in split: 4
 
 ## Drift adaptation (D3)
 

@@ -21,6 +21,7 @@ from models.detectors import (
     DetectorBank,
     ImpossibleTravelDetector,
     attack_probability,
+    TYPE_OVERRIDE_CONFIDENCE,
     resolve_anomaly_type,
     strongest_override,
 )
@@ -127,18 +128,66 @@ class TestDetectorBank:
 
 
 class TestTypeResolution:
-    def test_confident_detector_overrides_classifier(self) -> None:
+    @staticmethod
+    def _firing_brute_force():
         detector = BruteForceDetector()
         result = detector.evaluate(make_raw(auth_failures=settings.brute_force_threshold * 4))
         assert result.overrides is True
+        return result
 
-        probs = {"normal": 0.2, "credential_stuffing": 0.6, "brute_force": 0.2}
+    def test_detector_overrides_an_unsure_classifier(self) -> None:
+        """Below the confidence bar, the detector's label wins and takes the probability mass."""
+        result = self._firing_brute_force()
+        probs = {"normal": 0.6, "credential_stuffing": 0.3, "brute_force": 0.1}
+
         resolved, adjusted, hits = resolve_anomaly_type(
             AnomalyType.CREDENTIAL_STUFFING, probs, [result]
         )
         assert resolved == AnomalyType.BRUTE_FORCE
         assert adjusted["brute_force"] == pytest.approx(result.confidence)
         assert "brute_force" in hits
+
+    def test_detector_overrides_a_normal_prediction(self) -> None:
+        """The detector catching what the model missed is its whole point."""
+        result = self._firing_brute_force()
+        probs = {"normal": 0.97, "brute_force": 0.03}
+
+        resolved, _, hits = resolve_anomaly_type(AnomalyType.NORMAL, probs, [result])
+        assert resolved == AnomalyType.BRUTE_FORCE
+        assert "brute_force" in hits
+
+    def test_confident_attack_prediction_keeps_its_label(self) -> None:
+        """A sure classifier out-ranks a narrow rule on *type*, though risk is still floored.
+
+        Impossible travel fires legitimately during a credential-stuffing spray from abroad. The
+        geometric rule cannot see the fan-out across accounts, so overriding unconditionally
+        mislabelled those events and cost impossible-travel precision.
+        """
+        result = self._firing_brute_force()
+        probs = {"normal": 0.05, "credential_stuffing": 0.85, "brute_force": 0.10}
+
+        resolved, adjusted, hits = resolve_anomaly_type(
+            AnomalyType.CREDENTIAL_STUFFING, probs, [result]
+        )
+        assert resolved == AnomalyType.CREDENTIAL_STUFFING
+        assert adjusted == pytest.approx(probs)  # probabilities left untouched
+        assert "brute_force" in hits, "the detector hit is still recorded for the analyst"
+
+    def test_agreement_needs_no_adjustment(self) -> None:
+        result = self._firing_brute_force()
+        probs = {"normal": 0.05, "brute_force": 0.95}
+        resolved, _, hits = resolve_anomaly_type(AnomalyType.BRUTE_FORCE, probs, [result])
+        assert resolved == AnomalyType.BRUTE_FORCE
+        assert "brute_force" in hits
+
+    def test_override_threshold_boundary(self) -> None:
+        """Exactly at the bar, the classifier keeps its label."""
+        result = self._firing_brute_force()
+        probs = {"normal": 0.0, "credential_stuffing": TYPE_OVERRIDE_CONFIDENCE, "brute_force": 0.0}
+        resolved, _, _ = resolve_anomaly_type(
+            AnomalyType.CREDENTIAL_STUFFING, probs, [result]
+        )
+        assert resolved == AnomalyType.CREDENTIAL_STUFFING
 
     def test_no_override_when_detector_silent(self) -> None:
         probs = {"normal": 0.1, "lateral_movement": 0.9}
