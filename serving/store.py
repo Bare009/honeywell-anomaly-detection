@@ -50,7 +50,10 @@ class DetectionStore:
     async def count_detections(self) -> int:
         raise NotImplementedError
 
-    async def entity_detections(self, entity_id: str, limit: int = 100) -> List[Detection]:
+    async def entity_detections(self, entity_id: str, skip: int = 0, limit: int = 100) -> List[Detection]:
+        raise NotImplementedError
+
+    async def count_entity_detections(self, entity_id: str) -> int:
         raise NotImplementedError
 
     async def upsert_campaign(self, campaign: Campaign) -> None:
@@ -88,6 +91,10 @@ class DetectionStore:
         raise NotImplementedError
 
     async def dashboard_summary(self) -> Dict[str, Any]:
+        raise NotImplementedError
+
+    async def clear(self) -> None:
+        """Remove all detections, campaigns, feedback and drift state (fresh repopulation)."""
         raise NotImplementedError
 
 
@@ -140,10 +147,15 @@ class InMemoryStore(DetectionStore):
     async def count_detections(self) -> int:
         return len(self._detections)
 
-    async def entity_detections(self, entity_id: str, limit: int = 100) -> List[Detection]:
+    async def entity_detections(self, entity_id: str, skip: int = 0, limit: int = 100) -> List[Detection]:
         items = [d for d in self._detections.values() if d.entity_id == entity_id]
-        items.sort(key=lambda d: d.timestamp, reverse=True)
-        return items[:limit]
+        # Order by risk so an entity's actual alerts surface. Ordering by time would bury rare
+        # anomalies under the entity's much larger tail of recent normal events and truncate them.
+        items.sort(key=lambda d: (d.risk_score, d.timestamp), reverse=True)
+        return items[skip : skip + limit]
+
+    async def count_entity_detections(self, entity_id: str) -> int:
+        return sum(1 for d in self._detections.values() if d.entity_id == entity_id)
 
     async def upsert_campaign(self, campaign: Campaign) -> None:
         self._campaigns[campaign.campaign_id] = campaign
@@ -191,6 +203,13 @@ class InMemoryStore(DetectionStore):
 
     async def get_drift_state(self, entity_id: str) -> Optional[Dict[str, Any]]:
         return self._drift.get(entity_id)
+
+    async def clear(self) -> None:
+        self._detections.clear()
+        self._campaigns.clear()
+        self._feedback.clear()
+        self._offsets.clear()
+        self._drift.clear()
 
     async def dashboard_summary(self) -> Dict[str, Any]:
         detections = list(self._detections.values())
@@ -261,9 +280,19 @@ class MongoStore(DetectionStore):
     async def count_detections(self) -> int:
         return int(await self.detections.count_documents({}))
 
-    async def entity_detections(self, entity_id: str, limit: int = 100) -> List[Detection]:
-        cursor = self.detections.find({"entity_id": entity_id}).sort("timestamp", -1).limit(limit)
+    async def entity_detections(self, entity_id: str, skip: int = 0, limit: int = 100) -> List[Detection]:
+        # Order by risk so an entity's actual alerts surface. Ordering by time would bury rare
+        # anomalies under the entity's much larger tail of recent normal events and truncate them.
+        cursor = (
+            self.detections.find({"entity_id": entity_id})
+            .sort("risk_score", -1)
+            .skip(skip)
+            .limit(limit)
+        )
         return [Detection.model_validate(self._clean(doc)) async for doc in cursor]
+
+    async def count_entity_detections(self, entity_id: str) -> int:
+        return int(await self.detections.count_documents({"entity_id": entity_id}))
 
     async def upsert_campaign(self, campaign: Campaign) -> None:
         doc = campaign.model_dump(mode="json")
@@ -338,6 +367,10 @@ class MongoStore(DetectionStore):
             "n_feedback": int(n_feedback),
             "by_type": by_type,
         }
+
+    async def clear(self) -> None:
+        for collection in (self.detections, self.campaigns, self.feedback, self.drift):
+            await collection.delete_many({})
 
 
 __all__ = ["DetectionStore", "InMemoryStore", "MongoStore"]

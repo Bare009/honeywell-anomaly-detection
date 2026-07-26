@@ -43,12 +43,18 @@ async def get_detection(detection_id: str) -> Dict[str, Any]:
     return detection.model_dump(mode="json")
 
 
-@router.get("/entities/{entity_id}", summary="Entity detection history")
-async def get_entity(entity_id: str, limit: int = Query(100, ge=1, le=500)) -> Dict[str, Any]:
-    detections = await get_store().entity_detections(entity_id, limit=limit)
+@router.get("/entities/{entity_id}", summary="Entity detection history (paged, highest risk first)")
+async def get_entity(
+    entity_id: str,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=500),
+) -> Dict[str, Any]:
+    store = get_store()
+    detections = await store.entity_detections(entity_id, skip=skip, limit=limit)
+    total = await store.count_entity_detections(entity_id)
     return {
         "entity_id": entity_id,
-        "n_detections": len(detections),
+        "n_detections": total,
         "detections": [d.model_dump(mode="json") for d in detections],
     }
 

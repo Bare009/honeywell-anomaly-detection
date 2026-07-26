@@ -32,6 +32,7 @@ from common.models import (
     Detection,
     DetectionScores,
     Event,
+    utc_now,
 )
 from features.featurize import FeaturePipeline, FeatureVector
 from models.baseline import BaselineModel
@@ -107,6 +108,14 @@ class ScoringPipeline:
         self.feedback = feedback or FeedbackProcessor(store)
         self.drift_manager = drift_manager or DriftManager()
         self.enable_explanations = enable_explanations
+        # Population typical (raw) value per numeric feature, from the fitted scaler. Used as the
+        # "typical" column in the explanation's baseline comparison.
+        scaler = getattr(self.features.encoders, "scaler", None)
+        self._baseline_values: Dict[str, float] = (
+            {name: float(mean) for name, mean in zip(scaler.names, scaler.means)}
+            if scaler is not None
+            else {}
+        )
 
     # ------------------------------------------------------------------ #
     # Construction
@@ -255,6 +264,7 @@ class ScoringPipeline:
                 predicted_type=display_type,
                 risk=assessment,
                 detector_hits=computed["hits"],
+                baseline_values=self._baseline_values,
             )
 
         if is_anomaly:
@@ -262,6 +272,19 @@ class ScoringPipeline:
 
         if persist:
             await self.store.save_detection(detection)
+            # Persist the entity's drift state (once it has a monitor) so the dashboard can show it.
+            # Upsert keyed by entity keeps the collection one row per entity, not one per event.
+            monitor = self.drift_manager.monitors.get(event.entity_id)
+            if monitor is not None:
+                await self.store.save_drift_state(
+                    event.entity_id,
+                    {
+                        "psi": round(float(monitor.psi), 4),
+                        "status": monitor.status.value,
+                        "samples_seen": int(monitor.samples_seen),
+                        "updated_at": utc_now().isoformat(),
+                    },
+                )
         return detection
 
     async def score_batch(self, events: List[Event], persist: bool = True) -> List[Detection]:

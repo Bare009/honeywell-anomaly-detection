@@ -7,12 +7,13 @@ endpoint still answers 200 with an honest per-dependency status.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Dict
 
 from common.artifacts import artifacts_ready, manifest_schema_version
 from common.config import settings
-from common.database import check_mongo_health, check_redis_health
+from common.database import check_mongo_health
 from common.models import HealthStatus, ServiceHealth
 
 logger = logging.getLogger(__name__)
@@ -21,16 +22,50 @@ logger = logging.getLogger(__name__)
 SERVICE_VERSION = "0.1.0"
 
 
-def _aggregate_status(dependencies: Dict[str, HealthStatus]) -> str:
-    """Roll per-dependency statuses into one service status.
+async def _check_redis_container() -> HealthStatus:
+    """Raw reachability ping for the Redis container (independent of streaming being enabled).
 
-    ``disabled`` is not a failure -- optional components (Redis streaming) report it by
-    design, so they are excluded from the rollup.
+    System Health reports whether the *container* is up, not whether the app uses it, so this
+    pings regardless of ``redis_enabled``.
     """
-    relevant = [
-        dep.status for dep in dependencies.values() if dep.status != "disabled"
-    ]
-    if any(status == "error" for status in relevant):
+    try:
+        import redis.asyncio as redis  # local import: redis is only needed here and by streaming
+
+        client = redis.from_url(settings.redis_url)
+        try:
+            await asyncio.wait_for(client.ping(), timeout=2.0)
+            return HealthStatus(status="ok", detail="reachable")
+        finally:
+            await client.aclose()
+    except Exception as exc:  # noqa: BLE001 - unreachable is a status, not a crash
+        return HealthStatus(status="error", detail=f"unreachable: {type(exc).__name__}")
+
+
+async def _check_http(url: str, name: str) -> HealthStatus:
+    """Reachability check for an HTTP container (the scorer, the dashboard)."""
+    try:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            response = await client.get(url)
+        ok = response.status_code < 500
+        return HealthStatus(
+            status="ok" if ok else "error",
+            detail=f"HTTP {response.status_code}",
+        )
+    except Exception as exc:  # noqa: BLE001
+        return HealthStatus(status="error", detail=f"unreachable: {type(exc).__name__}")
+
+
+#: Only these are core to the read API answering correctly; the rest are shown for visibility
+#: but do not, by themselves, mark the service degraded.
+_CORE_DEPENDENCIES = ("mongodb", "artifacts")
+
+
+def _aggregate_status(dependencies: Dict[str, HealthStatus]) -> str:
+    """Roll the core dependency statuses into one service status."""
+    core = [dependencies[name].status for name in _CORE_DEPENDENCIES if name in dependencies]
+    if any(status == "error" for status in core):
         return "degraded"
     return "ok"
 
@@ -52,10 +87,23 @@ async def get_liveness() -> ServiceHealth:
 
 
 async def get_readiness() -> ServiceHealth:
-    """Full dependency probe: MongoDB, Redis (if enabled) and the artifacts manifest."""
+    """Probe every container in the stack plus the artifacts manifest.
+
+    Reports the docker-compose services (mongodb, redis, scorer, dashboard, read-api) by
+    reachability, so System Health mirrors ``docker compose ps``.
+    """
+    mongodb, redis, scorer, dashboard = await asyncio.gather(
+        check_mongo_health(),
+        _check_redis_container(),
+        _check_http(f"{settings.scorer_url}/health", "scorer"),
+        _check_http(settings.ui_url, "dashboard"),
+    )
     dependencies: Dict[str, HealthStatus] = {
-        "mongodb": await check_mongo_health(),
-        "redis": await check_redis_health(),
+        "mongodb": mongodb,
+        "redis": redis,
+        "scorer": scorer,
+        "dashboard": dashboard,
+        "read-api": HealthStatus(status="ok", detail="serving this response"),
     }
 
     ready = artifacts_ready()

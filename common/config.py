@@ -117,6 +117,13 @@ class Settings(BaseSettings):
     redis_consumer_name: str = Field(default="scorer-1")
 
     # ------------------------------------------------------------------ #
+    # Stack service URLs (used by System Health to report container reachability).
+    # Defaults are the docker-compose service names; override for host runs.
+    # ------------------------------------------------------------------ #
+    scorer_url: str = Field(default="http://serving:8100")
+    ui_url: str = Field(default="http://ui:80")
+
+    # ------------------------------------------------------------------ #
     # Artifacts contract
     # ------------------------------------------------------------------ #
     artifacts_dir: Path = Field(default=PROJECT_ROOT / "artifacts")

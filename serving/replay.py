@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 async def _run(
-    pipeline: ScoringPipeline, events: List[Event], store: DetectionStore
+    pipeline: ScoringPipeline, events: List[Event], store: DetectionStore, fresh: bool = False
 ) -> Tuple[List[Detection], List[float], List]:
     """Score every event and read back the campaigns -- all in one event loop.
 
@@ -39,6 +39,8 @@ async def _run(
     closed, loop) would raise "Event loop is closed". The in-memory store does not care, but this
     keeps both paths identical.
     """
+    if fresh:
+        await store.clear()
     detections: List[Detection] = []
     latencies_ms: List[float] = []
     for event in events:
@@ -58,6 +60,7 @@ def replay(
     artifacts_dir: Optional[Path] = None,
     store: Optional[DetectionStore] = None,
     enable_explanations: bool = True,
+    fresh: bool = False,
 ) -> Dict[str, Any]:
     """Replay a split and return a summary (detections, latency, campaigns)."""
     set_global_seed(seed)
@@ -70,7 +73,7 @@ def replay(
     if limit is not None:
         events = events[:limit]
 
-    detections, latencies, campaigns = asyncio.run(_run(pipeline, events, store))
+    detections, latencies, campaigns = asyncio.run(_run(pipeline, events, store, fresh=fresh))
     latency_arr = np.asarray(latencies, dtype=float)
 
     anomalies = [d for d in detections if d.is_anomaly]
@@ -128,6 +131,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Persist detections to MongoDB (populates the dashboard) instead of the in-memory store.",
     )
+    parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Clear detections/campaigns/feedback/drift before replaying (avoids duplicate accumulation).",
+    )
     return parser
 
 
@@ -148,6 +156,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             artifacts_dir=args.artifacts_dir,
             store=store,
             enable_explanations=not args.no_explanations,
+            fresh=args.fresh,
         )
     except (FileNotFoundError, ValueError) as exc:
         logger.error("%s", exc)
