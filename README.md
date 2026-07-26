@@ -32,17 +32,29 @@ tunes the entity's threshold. A live **React dashboard** surfaces all of it.
 ### How it flows
 
 ```
-OFFLINE (train, run once)                     ONLINE (serve)
-data_generator/  -> labeled synthetic data    events
-       │                                         │
-features/        one shared featurize()          serving/  featurize → baseline + sequence
-       │                                         │          → classifier + detectors
-training/        models + fusion + calibration   │          → risk fusion (calibrated 0–100)
-       │                                         │          → explanation + campaign + drift
-       ▼                                         │          → persist
-   artifacts/  ── loaded read-only ──────────────┤
-       │                                         ▼
-evaluation/      metrics + report            MongoDB → api/ (read-only) → frontend/ dashboard
+OFFLINE  (train once)                     ONLINE  (score every event)
+─────────────────────                     ───────────────────────────
+
+data_generator/   labeled dataset         event
+        │                                   │
+        ▼                                   ▼
+features/         encoders, entity        featurize()   66 features
+                  baselines, cohorts      the same function, both planes
+        │                                   │
+        ▼                                   ▼
+training/         autoencoder → GRU →     Tier 1   Autoencoder    unsupervised
+                  classifier → fusion     Tier 2   GRU            sequence
+                  → calibration           Tier 3   Classifier     anomaly type
+        │                                 Detectors (deterministic rules)
+        ▼                                   │
+artifacts/  ───── loaded read-only ─────►   ▼
+  version-stamped manifest                risk fusion → 0–100 risk + uncertainty
+        │                                   │
+        ▼                                   ▼
+evaluation/       metrics + report        explainability + campaign linking
+                                            │
+                                            ▼
+                                          MongoDB → api/ → frontend/ dashboard
 ```
 
 The **same `featurize()`** runs offline and online, so an online score equals the offline score
