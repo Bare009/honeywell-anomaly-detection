@@ -59,7 +59,7 @@ for the same event (no train/serve skew). The serving plane only *loads* trained
 | **D4** Anomaly-type classifier | `models/classifier.py` (LightGBM) | `tests/test_classifier.py` |
 | **D5** Explainability layer | `explainability/` (SHAP, counterfactual, MITRE, narrative) | `tests/test_explainability.py`, `tests/test_counterfactual.py` |
 | **D6** Analyst dashboard | `frontend/` (React + Vite + TS) | — |
-| **D7** Final report | `FINAL_REPORT.md`, `evaluation/` | `tests/test_evaluation.py` |
+| **D7** Final report | `DETAILED_REPORT.md`, `docs/`, `evaluation/` | `tests/test_evaluation.py` |
 | Extreme class imbalance | PR-AUC + recall@1% budget everywhere; never raw accuracy | `tests/test_risk.py` |
 | Cold start | Cohort-prior blending in the feature layer | `evaluation/coldstart_experiment.py` |
 | Concept drift | PSI monitor with adaptive re-profiling | `models/drift.py`, `tests/test_drift.py` |
@@ -68,7 +68,7 @@ for the same event (no train/serve skew). The serving plane only *loads* trained
 | Attack-story reconstruction | Per-entity campaign / kill-chain linking | `serving/campaign.py`, `tests/test_campaign.py` |
 
 Headline results on the held-out **test** split (full numbers, assumptions and honest limitations
-in [`FINAL_REPORT.md`](FINAL_REPORT.md)): PR-AUC 0.938, recall @ 1% budget 0.896, macro-F1 0.861,
+in [`DETAILED_REPORT.md`](DETAILED_REPORT.md)): PR-AUC 0.938, recall @ 1% budget 0.896, macro-F1 0.861,
 calibration ECE 0.0009, brute-force detector precision 1.000.
 
 ---
@@ -250,8 +250,18 @@ serving/         FastAPI scorer, campaign linking, feedback loop, stream consume
 api/             FastAPI read API for the dashboard
 frontend/        React 18 + Vite + TypeScript analyst dashboard
 artifacts/       trained state (git-ignored) + tracked manifest.json
+docs/            report PDF, dashboard screenshots, 100-event sample of the dataset
 tests/           unit and integration tests
 ```
+
+Submission artifacts live in `docs/`:
+
+| Path | Contents |
+|---|---|
+| [`DETAILED_REPORT.md`](DETAILED_REPORT.md) | The final report: architecture, metrics, assumptions, limitations |
+| `docs/report/report_honeywell.pdf` | The same report as a PDF |
+| `docs/frontend/` | Dashboard screenshots (overview, alerts, entity explorer, storyline, model performance) |
+| [`docs/sample_data/`](docs/sample_data/) | 100-event excerpt of the generated dataset, with labels in a separate file as in the real thing |
 
 ---
 
@@ -260,7 +270,7 @@ tests/           unit and integration tests
 - **Determinism:** one seed (42) drives `random`, NumPy, PyTorch and LightGBM
   ([`common/seed.py`](common/seed.py)). Trained state is version-stamped in
   `artifacts/manifest.json` with the git SHA that produced it.
-- **Honesty:** [`FINAL_REPORT.md`](FINAL_REPORT.md) states every headline metric against its target
+- **Honesty:** [`DETAILED_REPORT.md`](DETAILED_REPORT.md) states every headline metric against its target
   *and* the known limitations (why ROC-AUC is not the headline at ~1% prevalence, thin per-class
   incident counts, the zero cold-start uplift, `device_spoofing` precision, synthetic-data caveats).
   Metrics are computed on the held-out **test** split and regenerate via section 2.8.
