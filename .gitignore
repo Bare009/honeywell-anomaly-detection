@@ -30,13 +30,14 @@ coverage.xml
 .env.*.local
 
 # --- trained artifacts -------------------------------------------------------
-# Model binaries and generated datasets are reproducible from source (seed 42), so they
-# are not tracked. Only the directory marker and the manifest are.
-artifacts/*
-!artifacts/.gitkeep
-!artifacts/manifest.json
+# Tracked intentionally: the dataset and every trained model are committed under artifacts/, so
+# an evaluator can run the full stack immediately with no data generation or training step.
+# Everything here is still reproducible byte-for-byte from source under seed 42 -- see README
+# section 3 to regenerate instead of trusting the committed copy.
 
-# Belt-and-braces: never track model binaries or datasets anywhere in the tree.
+# Belt-and-braces: guards against a *different* model-binary format landing elsewhere in the tree.
+# This project's models and dataset are JSON/Parquet, both intentionally tracked above, so the two
+# dataset files are named explicitly and excluded from the parquet rule below.
 *.pt
 *.pth
 *.ckpt
@@ -45,6 +46,8 @@ artifacts/*
 *.pickle
 *.lgb
 *.parquet
+!artifacts/dataset/events.parquet
+!artifacts/dataset/labels.parquet
 *.feather
 *.h5
 

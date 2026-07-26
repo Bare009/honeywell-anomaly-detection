@@ -1,0 +1,7 @@
+{
+  "stages_linked_correctly": 1.0,
+  "campaigns_reconstructed": 47,
+  "campaigns_expected": 4,
+  "flagged_campaign_events": 138,
+  "split": "test"
+}

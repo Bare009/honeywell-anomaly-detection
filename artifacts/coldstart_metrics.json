@@ -1,0 +1,10 @@
+{
+  "recall_with_priors": 0.8571428571428571,
+  "recall_without_priors": 0.8571428571428571,
+  "uplift": 0.0,
+  "n_cold_entities": 32,
+  "n_cold_events": 2447,
+  "n_cold_anomalies": 21,
+  "alert_threshold": 60.0,
+  "split": "test"
+}

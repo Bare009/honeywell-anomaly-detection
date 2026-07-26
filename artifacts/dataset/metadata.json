@@ -1,0 +1,217 @@
+{
+  "seed": 42,
+  "generated_at": "2026-07-25T18:53:22.280958+05:30",
+  "config": {
+    "n_entities": 260,
+    "days": 45,
+    "start_date": "2026-01-05T00:00:00+00:00",
+    "end_date": "2026-02-19T00:00:00+00:00",
+    "target_anomaly_rate": 0.008,
+    "subtlety": 0.55,
+    "campaign_budget_fraction": 0.42,
+    "coldstart_entity_fraction": 0.12,
+    "drift_entity_fraction": 0.14,
+    "attack_class_weights": {
+      "brute_force": 0.11,
+      "credential_stuffing": 0.1,
+      "impossible_travel": 0.09,
+      "credential_misuse": 0.15,
+      "lateral_movement": 0.19,
+      "device_spoofing": 0.14,
+      "low_and_slow_exfil": 0.1,
+      "insider_drift": 0.12
+    }
+  },
+  "splits": {
+    "train_end": "2026-02-01T00:00:00+00:00",
+    "val_end": "2026-02-10T00:00:00+00:00",
+    "per_split": {
+      "test": {
+        "n_events": 38875,
+        "n_anomalies": 376,
+        "anomaly_rate": 0.009672025723472668
+      },
+      "train": {
+        "n_events": 99047,
+        "n_anomalies": 850,
+        "anomaly_rate": 0.008581784405383304
+      },
+      "val": {
+        "n_events": 31046,
+        "n_anomalies": 276,
+        "anomaly_rate": 0.008890034142884752
+      }
+    }
+  },
+  "totals": {
+    "n_events": 168968,
+    "n_benign": 167470,
+    "n_anomalies": 1502,
+    "anomaly_rate": 0.008889257137446144,
+    "n_entities": 260
+  },
+  "per_class_counts": {
+    "normal": 167466,
+    "credential_misuse": 193,
+    "lateral_movement": 261,
+    "brute_force": 189,
+    "impossible_travel": 91,
+    "credential_stuffing": 114,
+    "device_spoofing": 138,
+    "low_and_slow_exfil": 384,
+    "insider_drift": 132
+  },
+  "cohorts": [
+    {
+      "cohort_id": 0,
+      "name": "office_staff",
+      "entity_type": "user",
+      "n_entities": 51
+    },
+    {
+      "cohort_id": 1,
+      "name": "engineering",
+      "entity_type": "user",
+      "n_entities": 47
+    },
+    {
+      "cohort_id": 2,
+      "name": "business_analytics",
+      "entity_type": "user",
+      "n_entities": 58
+    },
+    {
+      "cohort_id": 3,
+      "name": "batch_services",
+      "entity_type": "service_account",
+      "n_entities": 33
+    },
+    {
+      "cohort_id": 4,
+      "name": "integration_services",
+      "entity_type": "service_account",
+      "n_entities": 32
+    },
+    {
+      "cohort_id": 5,
+      "name": "plant_devices",
+      "entity_type": "edge_device",
+      "n_entities": 39
+    }
+  ],
+  "coldstart": {
+    "n_entities": 31,
+    "appears_after": "2026-02-10T21:36:00+00:00"
+  },
+  "drift": {
+    "n_drifted_entities": 36,
+    "fraction_of_population": 0.13846153846153847,
+    "by_kind": {
+      "device": 11,
+      "resource": 11,
+      "schedule": 8,
+      "location": 6
+    },
+    "entity_ids": [
+      "dev_0001",
+      "dev_0002",
+      "dev_0003",
+      "dev_0011",
+      "dev_0012",
+      "dev_0021",
+      "dev_0036",
+      "svc_0003",
+      "svc_0010",
+      "svc_0055",
+      "user_0002",
+      "user_0003",
+      "user_0014",
+      "user_0016",
+      "user_0027",
+      "user_0050",
+      "user_0051",
+      "user_0053",
+      "user_0058",
+      "user_0061",
+      "user_0064",
+      "user_0065",
+      "user_0068",
+      "user_0077",
+      "user_0078",
+      "user_0081",
+      "user_0085",
+      "user_0089",
+      "user_0094",
+      "user_0105",
+      "user_0108",
+      "user_0124",
+      "user_0130",
+      "user_0132",
+      "user_0147",
+      "user_0156"
+    ],
+    "all_labeled_benign": true
+  },
+  "benign": {
+    "n_events": 167470,
+    "n_entities": 260,
+    "n_sessions": 39202,
+    "auth_failure_rate": 0.003397623454947155,
+    "off_hours_rate": 0.2315459485280946,
+    "n_countries": 4,
+    "mean_session_duration": 685.2184397477887
+  },
+  "attacks": {
+    "n_incidents": 100,
+    "n_events": 886,
+    "per_class": {
+      "credential_misuse": {
+        "incidents": 20,
+        "events": 120
+      },
+      "lateral_movement": {
+        "incidents": 17,
+        "events": 153
+      },
+      "brute_force": {
+        "incidents": 7,
+        "events": 102
+      },
+      "impossible_travel": {
+        "incidents": 20,
+        "events": 71
+      },
+      "credential_stuffing": {
+        "incidents": 3,
+        "events": 102
+      },
+      "device_spoofing": {
+        "incidents": 23,
+        "events": 110
+      },
+      "low_and_slow_exfil": {
+        "incidents": 4,
+        "events": 96
+      },
+      "insider_drift": {
+        "incidents": 6,
+        "events": 132
+      }
+    }
+  },
+  "campaigns": {
+    "n_campaigns": 18,
+    "n_events": 616,
+    "by_template": {
+      "credential_compromise": 6,
+      "stolen_session": 6,
+      "device_takeover": 6
+    },
+    "mean_stages": 3.3333333333333335,
+    "templates_available": [
+      "credential_compromise",
+      "stolen_session",
+      "device_takeover"
+    ]
+  }
+}

@@ -402,7 +402,8 @@ scoring path is stateless and horizontally scalable; the gap is transport wiring
 ## 10. Reproducing every number
 
 ```powershell
-python -m venv .venv ; .\.venv\Scripts\Activate.ps1 ; pip install -r requirements.txt
+python -m venv .venv ; .\.venv\Scripts\Activate.ps1
+python -m pip install --only-binary :all: -r requirements.txt
 python -m data_generator.generate --seed 42     # dataset, ~21s, byte-identical
 python -m training.build_artifacts              # train all models -> artifacts/
 docker compose up -d --build                    # mongodb, redis, scorer, api, dashboard
@@ -412,7 +413,7 @@ python -m evaluation.coldstart_experiment
 python -m evaluation.campaign_experiment
 python -m evaluation.drift_experiment
 python -m evaluation.report                     # local metrics summary
-pytest                                          # 647 tests
+python -m pytest                                 # 647 tests
 ```
 
 Dashboard **:8080** · read API **:8000** · scorer **:8100**.

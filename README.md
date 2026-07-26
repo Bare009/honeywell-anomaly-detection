@@ -114,46 +114,94 @@ cd honeywell-anomaly-detection
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install --upgrade pip
-pip install -r requirements.txt
+
+# Confirm the venv is really active before installing -- this must print a path
+# ending in \honeywell-anomaly-detection\.venv
+python -c "import sys; print(sys.prefix)"
+
+python -m pip install --only-binary :all: -r requirements.txt
 ```
 
 **macOS / Linux (bash):**
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
+
+# Confirm the venv is really active -- must print a path ending in /.venv
+python -c "import sys; print(sys.prefix)"
+
+python -m pip install --only-binary :all: -r requirements.txt
 ```
 
-> Dependencies are CPU-only and version-pinned. If `pip` resolves a CUDA build of PyTorch,
-> install the CPU wheel explicitly first:
-> `pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cpu`
+Two details in that command matter:
 
-### 2.4 Generate the synthetic dataset (deterministic)
+- **`python -m pip`, not bare `pip`.** A bare `pip` can resolve to a different Python's pip that
+  happens to sit earlier on `PATH`, which installs the dependencies somewhere the virtual
+  environment cannot see. `python -m pip` always installs into the interpreter you are running.
+- **`--only-binary :all:`** forces pre-built wheels. Every pinned version has one for Python
+  3.11/3.12. Without it, pip may try to compile a package from source and fail if a C toolchain
+  (for example a MinGW `gcc`) is on your `PATH`.
+
+> If pip resolves a CUDA build of PyTorch, install the CPU wheel explicitly first:
+> `python -m pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cpu`
+
+<details>
+<summary><b>Troubleshooting: <code>ModuleNotFoundError: No module named 'numpy'</code>, or pip says "Defaulting to user installation"</b></summary>
+
+Both symptoms have the same cause: the install went somewhere other than the virtual environment.
+The giveaway is pip reporting a path outside your project, such as
+`Requirement already satisfied: pip in c:\program files\python312\lib\site-packages`, together with
+`Defaulting to user installation because normal site-packages is not writeable`.
+
+Fix it by calling the environment's interpreter **by full path**, which cannot be shadowed by `PATH`:
+
+```powershell
+# Windows
+.\.venv\Scripts\python.exe -m pip install --only-binary :all: -r requirements.txt
+.\.venv\Scripts\python.exe -m data_generator.generate --seed 42
+```
 
 ```bash
-python -m data_generator.generate --seed 42
+# macOS / Linux
+./.venv/bin/python -m pip install --only-binary :all: -r requirements.txt
+./.venv/bin/python -m data_generator.generate --seed 42
 ```
-Writes the labeled dataset to `artifacts/dataset/`. Labels are kept separate and used only for
-evaluation.
 
-### 2.5 Train all models and write `artifacts/`
+Using the full interpreter path for every command in this guide works regardless of whether
+activation succeeded, and is the most reliable option if you hit any of this.
 
+Other things worth checking:
+
+- `Activate.ps1` blocked by execution policy: run `Set-ExecutionPolicy -Scope Process RemoteSigned`
+  once, then activate again.
+- Do **not** run `pip install --upgrade pip`. If bare `pip` is the system one, pip refuses to
+  upgrade itself and errors out. It is not needed here.
+- If the environment looks broken, delete and recreate it: `Remove-Item -Recurse -Force .venv`
+  then repeat the steps above.
+- Cloud-synced folders (OneDrive, Dropbox) occasionally interfere with virtual-env creation. If
+  problems persist, clone to a local path such as `C:\dev\honeywell-anomaly-detection`.
+
+</details>
+
+### 2.4 The dataset and trained models are already in the repo
+
+`artifacts/` is committed — the labeled dataset (`artifacts/dataset/`) and every trained model
+(autoencoder, GRU, classifier, fusion, cohorts, encoders) are already on disk after cloning.
+**There is nothing to generate or train to run the demo.** Skip straight to section 2.5.
+
+Sanity-check that everything is present:
 ```bash
-python -m training.build_artifacts
-```
-This one command builds the feature pipeline and entity baselines, then trains the autoencoder,
-the GRU, and the calibrated classifier, and tunes risk fusion — writing everything to `artifacts/`.
-CPU-only; expect a few minutes. (The trained artifacts are intentionally **not** committed to git,
-so this step is required.)
-
-Verify the build is healthy:
-```bash
-pytest -q
+python -m pytest -q
 ```
 
-### 2.6 Start the live stack (Docker)
+> **Why commit trained artifacts at all?** The usual advice is to keep binaries out of git. We
+> break that rule deliberately here so an evaluator can run the full stack immediately with no
+> data generation or training step. Every committed artifact is still fully reproducible: the
+> dataset regenerates byte-identically under seed 42 in ~20 seconds, and retraining takes a few
+> minutes on CPU. See **section 2.9** if you want to regenerate them yourself, e.g. to confirm
+> the determinism claim or to try a different `--subtlety`.
+
+### 2.5 Start the live stack (Docker)
 
 Make sure **Docker Desktop is running**, then:
 ```bash
@@ -163,7 +211,7 @@ This starts MongoDB, Redis, the scoring service, the read API, and the dashboard
 image is built inside Docker, so Node is not required). First build pulls images and compiles the
 UI — give it a few minutes. Check status with `docker compose ps`.
 
-### 2.7 Populate the dashboard with scored detections
+### 2.6 Populate the dashboard with scored detections
 
 With the stack up (MongoDB reachable), replay the test split through the scorer into MongoDB:
 ```bash
@@ -172,7 +220,7 @@ python -m serving.replay --split test --mongo --fresh
 `--fresh` clears previous runs so counts don't double. For a quick demo instead of the full split,
 add `--limit 5000`.
 
-### 2.8 (Recommended) Run the evaluation and generate the report
+### 2.7 (Recommended) Run the evaluation and generate the report
 
 With the stack up (so metrics land in MongoDB for the dashboard's *Model Performance* page):
 ```bash
@@ -183,13 +231,30 @@ python -m evaluation.drift_experiment       # PSI adaptation curves
 python -m evaluation.report                 # writes a local REPORT.md of the measured numbers
 ```
 
-### 2.9 Open the dashboard
+### 2.8 Open the dashboard
 
 Visit **http://localhost:3000**.
 
 You should see ranked alerts, the explanation drawer (SHAP, counterfactual, sequence highlight,
 MITRE, narrative, feedback), entity explorer, attack storylines, model performance, drift monitor,
 and system health.
+
+### 2.9 (Optional) Regenerate the dataset and retrain from scratch
+
+Not required to run the demo — the committed `artifacts/` already contains everything. Do this
+only if you want to verify the determinism claim yourself, or experiment with different generator
+settings (e.g. `--subtlety`, `--entities`).
+
+```bash
+python -m data_generator.generate --seed 42   # ~20s, overwrites artifacts/dataset/
+python -m training.build_artifacts            # ~5-8 min CPU, overwrites the model artifacts
+```
+
+The dataset write is byte-identical every time under the same seed; the trained models are
+deterministic under seed 42 but will differ from the committed copies if you change any generator
+or training parameter. Re-run `python -m evaluation.evaluate` (section 2.7) afterwards to refresh
+`artifacts/metrics.json` against whatever you just trained, and `git diff --stat artifacts/` to see
+exactly what changed before committing.
 
 ---
 
@@ -240,11 +305,13 @@ instead).
 ## 6. Verifying and testing
 
 ```bash
-pytest                         # full suite (unit + integration), CPU-only
-pytest -m "not integration"    # skip tests that need trained artifacts
-docker compose config          # validate the compose file
+python -m pytest                       # full suite (unit + integration), CPU-only
+python -m pytest -m "not integration"  # skip tests that need trained artifacts
+docker compose config                  # validate the compose file
 ```
-Tests are fast and deterministic; integration tests auto-skip if artifacts aren't built yet.
+647 tests, fast and deterministic; integration tests auto-skip if artifacts aren't built yet.
+`python -m pytest` rather than bare `pytest` for the same reason as `python -m pip` — it guarantees
+the test run uses this environment's interpreter and packages.
 
 ---
 
@@ -261,7 +328,7 @@ evaluation/      imbalance-aware metrics, cold-start/drift/campaign experiments,
 serving/         FastAPI scorer, campaign linking, feedback loop, stream consumer, replay
 api/             FastAPI read API for the dashboard
 frontend/        React 18 + Vite + TypeScript analyst dashboard
-artifacts/       trained state (git-ignored) + tracked manifest.json
+artifacts/       trained models + dataset (committed) -- see section 2
 docs/            report PDF, dashboard screenshots, 100-event sample of the dataset
 tests/           unit and integration tests
 ```
@@ -285,8 +352,9 @@ Submission artifacts live in `docs/`:
 - **Honesty:** [`DETAILED_REPORT.md`](DETAILED_REPORT.md) states every headline metric against its target
   *and* the known limitations (why ROC-AUC is not the headline at ~1% prevalence, thin per-class
   incident counts, the zero cold-start uplift, `device_spoofing` precision, synthetic-data caveats).
-  Metrics are computed on the held-out **test** split and regenerate via section 2.8.
+  Metrics are computed on the held-out **test** split and regenerate via section 2.7.
 - **Data:** synthetic only, no real PII. Assumptions, per-class signals, injection rates, campaign
   structure and drift design are documented in `data_generator/TAXONOMY.md`.
-- **Fastest path to a running demo:** sections 2.3 → 2.9. If Docker is unavailable, the training,
-  evaluation and test suite (2.3–2.5, 2.8, 6) run fully without it.
+- **Fastest path to a running demo:** sections 2.3 → 2.8 — no data generation or training needed,
+  the dataset and every model are already committed. If Docker is unavailable, the read-only
+  evaluation and test suite (2.3, 2.4, 2.7, 6) still run fully without it.
